@@ -131,17 +131,17 @@ def print_centroids(centroids):
         for value in centroid['value']:
             print(round(value,4), end=", ")
 
-# def main():
-#     args = parse_args()
+def main():
+    args = parse_args()
 
-#     if args == ERROR:
-#         return
+    if args == ERROR:
+        return
     
-#     centroids, datapoints = read_inputs(args['K'])
+    centroids, datapoints = read_inputs(args['K'])
     
-#     kmeans(centroids, datapoints, args['max_iter'])
+    kmeans(centroids, datapoints, args['max_iter'])
 
-#     print_centroids(centroids)
+    print_centroids(centroids)
 
 if __name__ == "__main__":
     main()
