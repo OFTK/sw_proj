@@ -14,6 +14,47 @@
 
 
 
+/*=======*/
+/* debug */
+/*=======*/
+#define DEBUG
+
+#ifdef DEBUG
+#	define DEBUG_PRINT(x) printf(x) 
+#else
+#	define DEBUG_PRINT(x) do {} while (0)
+#endif
+
+
+/*======*/
+/* misc */
+/*======*/
+/* TODO: for an error in the input file, should i print error or invalid_input? */
+/* TODO: replace all asserts for error prints */
+#define ERROR_PRINT() printf("An Error Has Occured")
+#define INVALID_INPUT_PRINT() printf("Invalid Input!")
+
+/* goal enum:
+	0	: spk
+	1	: wam
+	2	: ddg
+	3	: lnorm
+	4 	: jacobi
+	(-1): BAD ARGUMENT */
+int goal_enum(const char* goal_str) {
+	if 		(0 == strcmp("spk", goal_str)) return 0;
+	else if (0 == strcmp("wam", goal_str)) return 1;
+	else if (0 == strcmp("ddg", goal_str)) return 2;
+	else if (0 == strcmp("lnorm", goal_str)) return 3;
+	else if (0 == strcmp("jacobi", goal_str)) return 4;
+	return -1;
+}
+
+
+
+/*============*/
+/* math utils */
+/*============*/
 /* calcs the distance between to vectors of dimension dim */
 /* the vectors are represented as dim long arrays of F_TYPE */ 
 F_TYPE calc_vec_dist(F_TYPE* a, F_TYPE* b, int dim)
@@ -239,11 +280,11 @@ void print_centroids(F_TYPE** centroids, int dim, int k)
 	return 1 when scanning F_TYPE then "\n"
 	return 2 when scanning eof
 	return -1 otherwise */
-int scan_next_val(F_TYPE* x) {
+int scan_next_val(F_TYPE* x, FILE* finput) {
 
-	int value_exists = scanf(F_TYPE_FORMAT_SPEC, x);
+	int value_exists = fscanf(finput, F_TYPE_FORMAT_SPEC, x);
 	char c = 0;
-	int next_char = scanf("%c", &c);
+	int next_char = fscanf(finput, "%c", &c);
 
 	if ((1 == value_exists) && (1 == next_char) && (44 == c)) /* num with a comma */
 		return 0;
@@ -270,6 +311,8 @@ int main(int argc, char const *argv[])
 	/* input arguments */
 	int k = 0;
 	int max_iter = -1;  /* -1 symbolized no upper bound for max_iter. */
+ 	int goal = -1;
+ 	FILE* finput;
 
 
 	/* for allocation of datapoints */
@@ -293,32 +336,32 @@ int main(int argc, char const *argv[])
 	F_TYPE* curr_vector = NULL;
 	int scan_status = 0;
 
-
 	/*===================*/
 	/* parsing arguments */
 	/*===================*/
 
-	if (!((2 == argc) || (3 == argc))) {
-		printf("main: got %d arguments, expecting either 2 or 3\n", argc);
+	if (3 != argc) {
+		DEBUG_PRINT("main: bad num of args, expecting 3\n");
+		INVALID_INPUT_PRINT();
 		status = -1;
 		goto finalize;
 	}
 
 	k = atoi(argv[1]);
-	if (k == 0) goto finalize;
-
-	if (argc == 3) { /* max_iter is set only with 3 arguments */
-		max_iter = atoi(argv[2]);
-		if (max_iter < 0) {
-			printf("main: max_iter set to %d - bad value.\n", max_iter);
-			status = -1;
-			goto finalize;
-		}
+	goal = goal_enum(argv[2]);
+	if (-1 == goal) {
+		DEBUG_PRINT("bad goal value: expected one of {spk, wam, ddg, lnorm, jacobi}");
+		INVALID_INPUT_PRINT();
+		goto finalize;
 	}
 
-
-
-
+	/* TODO: should error here be invalid input or error? */
+	finput = fopen(argv[3], "r");
+	if (NULL == finput) {
+		DEBUG_PRINT("fopen returned with error");
+		INVALID_INPUT_PRINT();
+		goto finalize;
+	}
 
 	/*=================*/
 	/* scanning inputs */
@@ -326,30 +369,35 @@ int main(int argc, char const *argv[])
 
 	/* scan stdin and build the datapoints in a matrix */
 	while (TRUE) {
-		scan_status = scan_next_val(&scanned_num);
+		scan_status = scan_next_val(&scanned_num, finput);
 
 		if (scan_status < 0) {
-			printf("bad input file format\n");
+			DEBUG_PRINT("bad input file format\n");
+			INVALID_INPUT_PRINT();
 			status = -1;
-			goto finalize;
+			goto close;
 		}
 
 		/* when done reading the file */
 		if (scan_status == 2) {
 			if (dim == 0) {
-				printf("not able to read any num from file.\n");
+				DEBUG_PRINT("not able to read any num from file.\n");
+				INVALID_INPUT_PRINT();
 				status = -1;
-				goto finalize;
+				goto close;
 
 			}
 			if (curr_dim != 0) {
+				#ifdef DEBUG
 				printf("file terminated in the middle of a vector (dp num %d, in idx %d)\n",
-				dp_num, curr_dim);
+					dp_num, curr_dim);
+				#endif
+				INVALID_INPUT_PRINT();
 				status = -1;
-				goto finalize;
+				goto close;
 			}
 
-			/* without any error - allocate pointers array */
+			/* if scanned succesfully - allocate pointers array */
 			input_dps = realloc(input_dps, (sizeof(F_TYPE*)*dp_num));
 			assert(input_dps != NULL);
 			for (i = 0; i < dp_num; ++i)
@@ -364,16 +412,20 @@ int main(int argc, char const *argv[])
 		if (dp_num == 0) {
 			dim++;
 			curr_vector = realloc(curr_vector, (sizeof(F_TYPE)*dim));
+			if NULL
 			assert(curr_vector != NULL);
 		}
 
 		/* add the scanned F_TYPE to the current vector */
 		curr_dim++;
 		if (curr_dim > dim) {
+			#ifdef DEBUG
 			printf("bad input vector length: first vector is of length %d while %d'th vector is of length %d\n", 
 				dim, (dp_num+1), curr_dim);
+			#endif
+			INVALID_INPUT_PRINT();
 			status = -1;
-			goto finalize;
+			goto close;
 		}
 		curr_vector[curr_dim-1] = scanned_num;
 
@@ -385,7 +437,7 @@ int main(int argc, char const *argv[])
 				printf("bad input vector length: first vector is of length %d while %d'th vector is of length %d\n", 
 					dim, (dp_num+1), curr_dim);
 				status = -1;
-				goto finalize;
+				goto close;
 			}
 
 			dp_num++;
@@ -397,6 +449,8 @@ int main(int argc, char const *argv[])
 			curr_dim = 0;
 		}
 	}
+
+
 
 
 	/*=====================*/
@@ -432,12 +486,13 @@ int main(int argc, char const *argv[])
 	free(output_centroids);
 	free(output_cluster_assign);
 
+	close:
+		fclose(finput);
 
-	finalize:
-	
-	free(curr_vector);
-	free(input_dp_mem);
-	free(input_dps);
+	finalize:	
+		free(curr_vector);
+		free(input_dp_mem);
+		free(input_dps);
 
 	return status;
 }
