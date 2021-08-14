@@ -4,6 +4,7 @@
 #include <string.h>
 #include <assert.h>
 #include <float.h>
+#include <math.h>
 
 #define TRUE (1)
 #define FALSE (0)
@@ -57,6 +58,19 @@ int goal_enum(const char* goal_str) {
 /*============*/
 /* calcs the distance between to vectors of dimension dim */
 /* the vectors are represented as dim long arrays of F_TYPE */ 
+F_TYPE calc_l2_norm(F_TYPE* a, F_TYPE* b, int dim)
+{
+	F_TYPE ret = 0;
+	int i = 0;
+	for (i = 0; i < dim; ++i)
+	{
+		ret += (a[i] - b[i]) * (a[i] - b[i]);
+	}
+	return sqrt(ret);
+}
+
+/* TODO: delete this comment after code works */
+/*
 F_TYPE calc_vec_dist(F_TYPE* a, F_TYPE* b, int dim)
 {
 	F_TYPE ret = 0;
@@ -67,6 +81,7 @@ F_TYPE calc_vec_dist(F_TYPE* a, F_TYPE* b, int dim)
 	}
 	return ret;
 }
+*/
 
 /* vector sum: dst = a+b */
 void vec_sum(F_TYPE* dst, F_TYPE* a, F_TYPE* b, int dim)
@@ -101,6 +116,38 @@ int cmp_matrices(F_TYPE** a, F_TYPE** b, int dim, int vec_num)
 }
 
 
+
+/*===========*/
+/* algorithm */
+/*===========*/
+
+int calc_weighted_adjacency_matrix(
+	int dim,
+	F_TYPE** input_dps, int dp_num,
+	F_TYPE** wam)
+{
+	int i, j;
+
+	/* calc weight */
+	for (i = 0; i < dp_num; ++i) {
+		for (j = 0; j < i; ++j) {
+			wam[i][j] = exp((-0.5) * calc_l2_norm(input_dps[i], input_dps[j], dim));
+		}
+	}
+
+	/* make matrix symmetric */
+	for (i = dp_num-1; i >= 0; --i) {
+		for (j = dp_num-1; j>=i; --j) {
+			wam[i][j] = wam[j][i];
+		}
+	}
+
+
+
+	return 0;
+}
+
+
 int assign_to_cluster(F_TYPE* dp, F_TYPE** centroids,
 					  int dim, int k)
 {
@@ -112,7 +159,7 @@ int assign_to_cluster(F_TYPE* dp, F_TYPE** centroids,
 
 	for (i = 0; i < k; ++i)
 	{
-		curr_dist = calc_vec_dist(dp, centroids[i], dim);
+		curr_dist = pow(calc_l2_norm(dp, centroids[i], dim), 2);
 		if (curr_dist < min_dist) {
 			min_dist = curr_dist;
 			min_dist_centrd_idx = i;
@@ -123,10 +170,11 @@ int assign_to_cluster(F_TYPE* dp, F_TYPE** centroids,
 }
 
 
-int kmeans(int dim,
-				F_TYPE** input_dps, int dp_num,
-				F_TYPE** output_centrds, int* output_cluster_assign, int k,
-				int max_iter)
+int kmeans(
+	int dim,
+	F_TYPE** input_dps, int dp_num,
+	F_TYPE** output_centrds, int* output_cluster_assign, int k,
+	int max_iter)
 {
 	int status = 0;
 
@@ -255,25 +303,25 @@ int kmeans(int dim,
 	free(centrds_ref_cnt);
 
 	return status;
-
 }
 
 
-void print_centroids(F_TYPE** centroids, int dim, int k)
+void print_matrix(F_TYPE** matrix, int m, int n)
 {
 	int i = 0;
 	int j = 0;
 
-	for (i = 0; i < k; ++i)
+	for (i = 0; i < n; ++i)
 	{
-		for (j = 0; j < dim; ++j)
+		for (j = 0; j < m; ++j)
 		{
-			printf(F_TYPE_OUTPUT_FORMAT_SPEC, centroids[i][j]);
-			if (j != dim-1) printf(",");
+			printf(F_TYPE_OUTPUT_FORMAT_SPEC, matrix[i][j]);
+			if (j != m-1) printf(",");
 		}
 		printf("\n");
 	}
 }
+
 
 /* 	write F_TYPE to x*.
 	return 0 when scanning F_TYPE then ","
@@ -321,6 +369,10 @@ int main(int argc, char const *argv[])
 	int dim = 0;
 	int dp_num = 0;
 
+
+	/* memory for returned centroids */
+	F_TYPE** wam = NULL;
+	F_TYPE* wam_mem = NULL;
 
 	/* memory for returned centroids */
 	F_TYPE** output_centroids = NULL;
@@ -451,7 +503,24 @@ int main(int argc, char const *argv[])
 	}
 
 
+	/*===========================*/
+	/* Weighted Adjacency Matrix */
+	/*===========================*/
+	/* allocate memory for output centroids */
+	wam_mem = calloc(sizeof(F_TYPE), dp_num*dp_num);
+	assert(wam_mem != NULL);
+	wam = calloc(sizeof(F_TYPE*), dp_num);
+	assert(wam != NULL);
+	for (i = 0; i < dp_num; ++i)
+	{
+		wam[i] = wam_mem + (i*dp_num);
+	}
 
+	calc_weighted_adjacency_matrix(dim, input_dps, dp_num, wam);
+
+	if (1 == goal) {
+		print_matrix(wam, dp_num, dp_num);
+	}
 
 	/*=====================*/
 	/* algorithm procedure */
@@ -478,7 +547,7 @@ int main(int argc, char const *argv[])
 
 
 	/* print or return the output centroids */
-	print_centroids(output_centroids, dim, k);
+	print_matrix(output_centroids, dim, k);
 
 
 	/* freeing centroids mem */
