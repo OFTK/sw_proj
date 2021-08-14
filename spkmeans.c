@@ -370,7 +370,7 @@ int main(int argc, char const *argv[])
 	int dp_num = 0;
 
 
-	/* memory for returned centroids */
+	/* memory for weighted adjacency matrix */
 	F_TYPE** wam = NULL;
 	F_TYPE* wam_mem = NULL;
 
