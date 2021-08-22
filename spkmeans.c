@@ -142,8 +142,6 @@ int calc_weighted_adjacency_matrix(
 		}
 	}
 
-
-
 	return 0;
 }
 
@@ -520,6 +518,7 @@ int main(int argc, char const *argv[])
 
 	if (1 == goal) {
 		print_matrix(wam, dp_num, dp_num);
+		goto close; /* TODO: go to the correct place */
 	}
 
 	/*=====================*/
