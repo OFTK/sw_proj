@@ -126,21 +126,35 @@ int calc_weighted_adjacency_matrix(
 	F_TYPE** input_dps, int dp_num,
 	F_TYPE** wam)
 {
+	int status = 0;
 	int i, j;
 
 	/* calc weight */
+	/*-------------*/
 	for (i = 0; i < dp_num; ++i) {
 		for (j = 0; j < i; ++j) {
 			wam[i][j] = exp((-0.5) * calc_l2_norm(input_dps[i], input_dps[j], dim));
+			if (0 != errno) status = -1;
 		}
 	}
 
 	/* make matrix symmetric */
+	/*-----------------------*/
 	for (i = dp_num-1; i >= 0; --i) {
 		for (j = dp_num-1; j>=i; --j) {
 			wam[i][j] = wam[j][i];
 		}
 	}
+
+	return status;
+}
+
+int calc_diagonal_degree_matrix(
+	F_TYPE** wam, int dp_num,
+	F_TYPE** ddg)
+{
+	int i;
+	for (i = 0; i < dp_num; ++i) ddg[i][i] = wam[i][i];
 
 	return 0;
 }
@@ -372,6 +386,14 @@ int main(int argc, char const *argv[])
 	F_TYPE** wam = NULL;
 	F_TYPE* wam_mem = NULL;
 
+	/* memory for diagonal degree matrix */
+	F_TYPE** ddg = NULL;
+	F_TYPE* ddg_mem = NULL;
+
+	/* memory for normalized graph Laplacian */
+	/* F_TYPE** lnorm = NULL; */
+	/* F_TYPE* lnorm_mem = NULL; */
+
 	/* memory for returned centroids */
 	F_TYPE** output_centroids = NULL;
 	F_TYPE* output_centroids_mem = NULL;
@@ -504,7 +526,8 @@ int main(int argc, char const *argv[])
 	/*===========================*/
 	/* Weighted Adjacency Matrix */
 	/*===========================*/
-	/* allocate memory for output centroids */
+
+	/* allocate memory for WAM */
 	wam_mem = calloc(sizeof(F_TYPE), dp_num*dp_num);
 	assert(wam_mem != NULL);
 	wam = calloc(sizeof(F_TYPE*), dp_num);
@@ -514,12 +537,42 @@ int main(int argc, char const *argv[])
 		wam[i] = wam_mem + (i*dp_num);
 	}
 
-	calc_weighted_adjacency_matrix(dim, input_dps, dp_num, wam);
+	if (0 != calc_weighted_adjacency_matrix(dim, input_dps, dp_num, wam)) {
+		ERROR_PRINT();
+		goto close;
+	}
 
 	if (1 == goal) {
 		print_matrix(wam, dp_num, dp_num);
 		goto close; /* TODO: go to the correct place */
 	}
+
+
+	/*========================*/
+	/* Diagonal Degree Matrix */
+	/*========================*/
+
+	/* allocate memory for DDG */
+	ddg_mem = calloc(sizeof(F_TYPE), dp_num*dp_num);
+	assert(ddg_mem != NULL);
+	ddg = calloc(sizeof(F_TYPE*), dp_num);
+	assert(ddg != NULL);
+	for (i = 0; i < dp_num; ++i)
+	{
+		ddg[i] = ddg_mem + (i*dp_num);
+	}
+
+
+	if (0 != calc_diagonal_degree_matrix(wam, dp_num, ddg)) {
+		ERROR_PRINT();
+		goto close;
+	}
+
+	if (2 == goal) {
+		print_matrix(ddg, dp_num, dp_num);
+		goto close; /* TODO: go to the correct place */
+	}
+
 
 	/*=====================*/
 	/* algorithm procedure */
