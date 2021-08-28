@@ -169,7 +169,7 @@ int calc_normalized_graph_laplacian(
 {
 	int i, j;
 	int status = 0;
-	int eye = 0;
+	F_TYPE eye = 0;
 
 	/* first of all - calc inverse-sqare-root of ddg */
 	/*-----------------------------------------------*/
@@ -192,6 +192,7 @@ int calc_normalized_graph_laplacian(
 
 	/* calc lnorm */
 	/*------------*/
+
 	for (i = 0; i < dp_num; ++i) {
 		for (j = 0; j < i; ++j) {
 
@@ -562,6 +563,10 @@ int main(int argc, char const *argv[])
 		}
 	}
 
+	close:
+		fclose(finput);
+		goto finalize;
+
 
 	/*===========================*/
 	/* Weighted Adjacency Matrix */
@@ -577,12 +582,12 @@ int main(int argc, char const *argv[])
 
 	if (0 != calc_weighted_adjacency_matrix(dim, input_dps, dp_num, wam)) {
 		ERROR_PRINT();
-		goto close;
+		goto wam_free;
 	}
 
 	if (1 == goal) {
 		print_matrix(wam, dp_num, dp_num);
-		goto close; /* TODO: go to the correct place */
+		goto wam_free; /* TODO: go to the correct place */
 	}
 
 
@@ -601,12 +606,12 @@ int main(int argc, char const *argv[])
 
 	if (0 != calc_diagonal_degree_matrix(wam, dp_num, ddg)) {
 		ERROR_PRINT();
-		goto close;
+		goto ddg_free;
 	}
 
 	if (2 == goal) {
 		print_matrix(ddg, dp_num, dp_num);
-		goto close; /* TODO: go to the correct place */
+		goto ddg_free; /* TODO: go to the correct place */
 	}
 
 
@@ -625,12 +630,12 @@ int main(int argc, char const *argv[])
 
 	if (0 != calc_normalized_graph_laplacian(wam, ddg, dp_num, ddg)) {
 		ERROR_PRINT();
-		goto close;
+		goto lnorm_free;
 	}
 
 	if (4 == goal) {
 		print_matrix(ddg, dp_num, dp_num);
-		goto close; /* TODO: go to the correct place */
+		goto lnorm_free; /* TODO: go to the correct place */
 	}
 
 
@@ -654,19 +659,29 @@ int main(int argc, char const *argv[])
 	status = kmeans(dim, input_dps,
 		dp_num, output_centroids, output_cluster_assign,
 		k, max_iter);
-
+	/* TODO: handle kmeans status */
 
 	/* print or return the output centroids */
 	print_matrix(output_centroids, dim, k);
 
 
-	/* freeing centroids mem */
-	free(output_centroids_mem);
-	free(output_centroids);
-	free(output_cluster_assign);
+	/* freeing allocated memory */
+	lnorm_free:
+		free(lnorm_mem);
+		free(lnorm);
 
-	close:
-		fclose(finput);
+	ddg_free:
+		free(ddg_mem);
+		free(ddg);
+
+	wam_free:
+		free(wam_mem);
+		free(wam);
+
+		free(output_centroids_mem);
+		free(output_centroids);
+
+		free(output_cluster_assign);
 
 	finalize:	
 		free(curr_vector);
