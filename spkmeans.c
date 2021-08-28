@@ -32,8 +32,8 @@
 /*======*/
 /* TODO: for an error in the input file, should i print error or invalid_input? */
 /* TODO: replace all asserts for error prints */
-#define ERROR_PRINT() printf("An Error Has Occured")
-#define INVALID_INPUT_PRINT() printf("Invalid Input!")
+#define ERROR_PRINT() (printf("An Error Has Occured"))
+#define INVALID_INPUT_PRINT() (printf("Invalid Input!"))
 
 /* goal enum:
 	0	: spk
@@ -56,6 +56,11 @@ int goal_enum(const char* goal_str) {
 /*============*/
 /* math utils */
 /*============*/
+
+/* inverse sqare-root */
+/* we use a define to save the redundant function-call run-time */
+#define INV_SQRT(x) (1 / (sqrt(x)))
+
 /* calcs the distance between to vectors of dimension dim */
 /* the vectors are represented as dim long arrays of F_TYPE */ 
 F_TYPE calc_l2_norm(F_TYPE* a, F_TYPE* b, int dim)
@@ -69,26 +74,23 @@ F_TYPE calc_l2_norm(F_TYPE* a, F_TYPE* b, int dim)
 	return sqrt(ret);
 }
 
-/* TODO: delete this comment after code works */
-/*
-F_TYPE calc_vec_dist(F_TYPE* a, F_TYPE* b, int dim)
-{
-	F_TYPE ret = 0;
-	int i = 0;
-	for (i = 0; i < dim; ++i)
-	{
-		ret += (a[i] - b[i]) * (a[i] - b[i]);
-	}
-	return ret;
-}
-*/
-
 /* vector sum: dst = a+b */
 void vec_sum(F_TYPE* dst, F_TYPE* a, F_TYPE* b, int dim)
 {
 	int i = 0;
 	for (i = 0; i < dim; ++i)
 		dst[i] = a[i] + b[i];
+}
+
+/* sum of elements in a vector */
+F_TYPE element_sum(F_TYPE* vec, int dim)
+{
+	int i = 0;
+	F_TYPE sum = 0;
+	for (i = 0; i < dim; ++i)
+		sum = sum + vec[i];
+
+	return sum;
 }
 
 /* divide a vector by scalar: dst = a/s */
@@ -154,10 +156,58 @@ int calc_diagonal_degree_matrix(
 	F_TYPE** ddg)
 {
 	int i;
-	for (i = 0; i < dp_num; ++i) ddg[i][i] = wam[i][i];
+	for (i = 0; i < dp_num; ++i)
+		ddg[i][i] = element_sum(wam[i], dp_num);
 
 	return 0;
 }
+
+
+int calc_normalized_graph_laplacian(
+	F_TYPE** wam, F_TYPE** ddg, int dp_num,
+	F_TYPE** lnorm)
+{
+	int i, j;
+	int status = 0;
+	int eye = 0;
+
+	/* first of all - calc inverse-sqare-root of ddg */
+	/*-----------------------------------------------*/
+
+	/* memory allocation */
+	F_TYPE** ddg_invsqrt = NULL;
+	F_TYPE* ddg_invsqrt_mem = NULL;
+	ddg_invsqrt_mem = calloc(sizeof(F_TYPE), dp_num*dp_num);
+	assert(ddg_invsqrt_mem != NULL);
+	ddg_invsqrt = calloc(sizeof(F_TYPE*), dp_num);
+	assert(ddg_invsqrt != NULL);
+	for (i = 0; i < dp_num; ++i)
+		ddg_invsqrt[i] = ddg_invsqrt_mem + (i*dp_num);
+
+	/* inverse square root of matrix main diagonal */
+	for (i = 0; i < dp_num; ++i)
+		ddg_invsqrt[i][i] = INV_SQRT(ddg[i][i]);
+
+	if (0 != errno) status = -1;
+
+	/* calc lnorm */
+	/*------------*/
+	for (i = 0; i < dp_num; ++i) {
+		for (j = 0; j < i; ++j) {
+
+			/* calc eye matrix */
+			if (i == j) eye = 1; else eye = 0;
+			/* calc lnorm */
+			lnorm[i][j] = eye - (ddg_invsqrt[i][i]*wam[i][j]*ddg_invsqrt[j][j]);
+
+		}
+	}
+
+	free(ddg_invsqrt);
+	free(ddg_invsqrt_mem);
+	return status;
+}
+
 
 
 int assign_to_cluster(F_TYPE* dp, F_TYPE** centroids,
@@ -215,9 +265,7 @@ int kmeans(
 	last_iter_centrds = calloc( sizeof(F_TYPE*) , k);
 	assert(last_iter_centrds != NULL);
 	for (i = 0; i < k; ++i)
-	{
 		last_iter_centrds[i] = last_iter_centrds_mem + (i*dim);
-	}
 
 
 	centrds_sum_mem = calloc(sizeof(F_TYPE), k*dim);
@@ -225,9 +273,7 @@ int kmeans(
 	centrds_sum = calloc(sizeof(F_TYPE*), k);
 	assert(centrds_sum != NULL);
 	for (i = 0; i < k; ++i)
-	{
 		centrds_sum[i] = centrds_sum_mem + (i*dim);
-	}
 	centrds_ref_cnt = calloc(sizeof(int), k);
 	assert(centrds_ref_cnt != NULL);
 
@@ -261,9 +307,7 @@ int kmeans(
 		/*----------------------------------------*/		
 		memset(centrds_ref_cnt, 0, sizeof(int)*k);
 		for (i = 0; i < k; ++i)
-		{
 			memset(centrds_sum[i], 0, sizeof(F_TYPE)*dim);
-		}		
 
 
 		/* assign each datapoint to the closest centroid */
@@ -283,9 +327,7 @@ int kmeans(
 		/* update centroids */
 		/*------------------*/
 		for (i = 0; i < k; ++i)
-		{
 			vec_div_by_scalar(output_centrds[i], centrds_sum[i], centrds_ref_cnt[i], dim);
-		}
 
 
 		/* check unchanging centroids end condition */
@@ -301,9 +343,7 @@ int kmeans(
 		/* update last iteration centroids */
 		/*---------------------------------*/
 		for (i = 0; i < k; ++i)
-		{
 			memcpy(last_iter_centrds[i], output_centrds[i], sizeof(F_TYPE)*dim);
-		}
 		iter_num++;
 	}
 
@@ -391,8 +431,8 @@ int main(int argc, char const *argv[])
 	F_TYPE* ddg_mem = NULL;
 
 	/* memory for normalized graph Laplacian */
-	/* F_TYPE** lnorm = NULL; */
-	/* F_TYPE* lnorm_mem = NULL; */
+	F_TYPE** lnorm = NULL;
+	F_TYPE* lnorm_mem = NULL;
 
 	/* memory for returned centroids */
 	F_TYPE** output_centroids = NULL;
@@ -533,9 +573,7 @@ int main(int argc, char const *argv[])
 	wam = calloc(sizeof(F_TYPE*), dp_num);
 	assert(wam != NULL);
 	for (i = 0; i < dp_num; ++i)
-	{
 		wam[i] = wam_mem + (i*dp_num);
-	}
 
 	if (0 != calc_weighted_adjacency_matrix(dim, input_dps, dp_num, wam)) {
 		ERROR_PRINT();
@@ -558,9 +596,7 @@ int main(int argc, char const *argv[])
 	ddg = calloc(sizeof(F_TYPE*), dp_num);
 	assert(ddg != NULL);
 	for (i = 0; i < dp_num; ++i)
-	{
 		ddg[i] = ddg_mem + (i*dp_num);
-	}
 
 
 	if (0 != calc_diagonal_degree_matrix(wam, dp_num, ddg)) {
@@ -569,6 +605,30 @@ int main(int argc, char const *argv[])
 	}
 
 	if (2 == goal) {
+		print_matrix(ddg, dp_num, dp_num);
+		goto close; /* TODO: go to the correct place */
+	}
+
+
+	/*============================*/
+	/* Normalized Graph Laplacian */
+	/*============================*/
+
+	/* allocate memory for lnorm */
+	lnorm_mem = calloc(sizeof(F_TYPE), dp_num*dp_num);
+	assert(lnorm_mem != NULL);
+	lnorm = calloc(sizeof(F_TYPE*), dp_num);
+	assert(lnorm != NULL);
+	for (i = 0; i < dp_num; ++i)
+		lnorm[i] = lnorm_mem + (i*dp_num);
+
+
+	if (0 != calc_normalized_graph_laplacian(wam, ddg, dp_num, ddg)) {
+		ERROR_PRINT();
+		goto close;
+	}
+
+	if (4 == goal) {
 		print_matrix(ddg, dp_num, dp_num);
 		goto close; /* TODO: go to the correct place */
 	}
@@ -583,9 +643,7 @@ int main(int argc, char const *argv[])
 	output_centroids = calloc(sizeof(F_TYPE*), k);
 	assert(output_centroids != NULL);
 	for (i = 0; i < k; ++i)
-	{
 		output_centroids[i] = output_centroids_mem + (i*dim);
-	}
 
 	/* allocate memory for datapoint assignment to cluster */
 	output_cluster_assign = calloc(sizeof(int), dp_num);
