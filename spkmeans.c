@@ -13,6 +13,12 @@
 #define F_TYPE_OUTPUT_FORMAT_SPEC ("%.4Lf")
 #define F_TYPE_MAX (LDBL_MAX)
 
+enum status
+{
+	Error,
+	Success,
+	Finish
+};
 
 
 /*=======*/
@@ -123,12 +129,12 @@ int cmp_matrices(F_TYPE** a, F_TYPE** b, int dim, int vec_num)
 /* algorithm */
 /*===========*/
 
-int calc_weighted_adjacency_matrix(
+enum status calc_weighted_adjacency_matrix(
 	int dim,
 	F_TYPE** input_dps, int dp_num,
 	F_TYPE** wam)
 {
-	int status = 0;
+	enum status s = Success;
 	int i, j;
 
 	/* calc weight */
@@ -136,7 +142,7 @@ int calc_weighted_adjacency_matrix(
 	for (i = 0; i < dp_num; ++i) {
 		for (j = 0; j < i; ++j) {
 			wam[i][j] = exp((-0.5) * calc_l2_norm(input_dps[i], input_dps[j], dim));
-			if (0 != errno) status = -1;
+			if (0 != errno) s = Error;
 		}
 	}
 
@@ -148,7 +154,7 @@ int calc_weighted_adjacency_matrix(
 		}
 	}
 
-	return status;
+	return s;
 }
 
 int calc_diagonal_degree_matrix(
@@ -163,12 +169,12 @@ int calc_diagonal_degree_matrix(
 }
 
 
-int calc_normalized_graph_laplacian(
+enum status calc_normalized_graph_laplacian(
 	F_TYPE** wam, F_TYPE** ddg, int dp_num,
 	F_TYPE** lnorm)
 {
 	int i, j;
-	int status = 0;
+	enum status s = Success;
 	F_TYPE eye = 0;
 
 	/* first of all - calc inverse-sqare-root of ddg */
@@ -188,7 +194,7 @@ int calc_normalized_graph_laplacian(
 	for (i = 0; i < dp_num; ++i)
 		ddg_invsqrt[i][i] = INV_SQRT(ddg[i][i]);
 
-	if (0 != errno) status = -1;
+	if (0 != errno) s = Error;
 
 	/* calc lnorm */
 	/*------------*/
@@ -206,7 +212,8 @@ int calc_normalized_graph_laplacian(
 
 	free(ddg_invsqrt);
 	free(ddg_invsqrt_mem);
-	return status;
+
+	return s;
 }
 
 
@@ -232,6 +239,89 @@ int assign_to_cluster(F_TYPE* dp, F_TYPE** centroids,
 	return min_dist_centrd_idx;
 }
 
+/**
+ * @details: This method received a matrix and returns True if it's diagonal, false
+ * 			 otherwise.
+ * @note This method uses 'Convergence' method, as described in the specification
+ * 		 document.
+ */
+int is_diagonal_matrix(F_TYPE** mtx)
+{
+	// TODO : See "6. convergence"
+}
+
+enum status calc_next_mtx_A_javobi(F_TYPE** io_mtx_A, int dp_num, F_TYPE** o_mtx_P)
+{	
+	size_t i = 0, j = 0;
+	F_TYPE theta = 0, t = 0, c = 0, s = 0;
+
+	// Find the largest absolute value A_ij
+	
+	if (io_mtx_A[i][j] != 0)
+	{
+		// Calculate Theta, t, c
+		theta = (io_mtx_A[j][j] - io_mtx_A[i][i]) / (2*io_mtx_A[i][j]);
+
+		if (theta > 0)
+		{
+			t = 1 / theta + sqrt(pow(theta, 2) + 1);
+		}
+		else
+		{
+			t = -1 / -theta + sqrt(pow(theta, 2) + 1);
+		}
+
+		c = 1 / sqrt(pow(t, 2) + 1);
+		s = t*c;
+
+		// Calculate the matrix rotation matrix mtx_P
+		memset(o_mtx_P, 0, dp_num*dp_num*sizeof(F_TYPE));
+
+		for (int k = 0; k < dp_num; k++)
+		{
+			o_mtx_P[k][k] = 1;
+		}
+
+		o_mtx_P[i][i] = c;
+		o_mtx_P[j][j] = c;
+		o_mtx_P[i][j] = s;
+		o_mtx_P[j][i] = -s;
+
+		// TODO: Needs to add matrix multiplication
+		return Success;
+	}
+
+	return Finish;
+}
+
+/**
+ * @details This method received a symmetric matrix, A. It returns a status value,
+ * 			 an eignvalues matrix pointed by mtx_A (changes the received matrix) and
+ * 			 an eignvectors matrix pointed by mtx_V.
+ * @note
+ * 		- This method perform in-place work on mtx_A. If you wish to save the values
+ * 		  of that matrix, you should save it before using this function.
+ * 		- This method does not check the validity of mtx_A, this method should be
+ * 		  used cautiously only on symmetric matrices.
+ */ 
+int find_eigenvalues_jacobi(F_TYPE** io_mtx_A, int dp_num, F_TYPE** o_mtx_V)
+{	
+	// Declare locals
+	F_TYPE** mtx_P = NULL;
+
+	// Allocate locals
+	mtx_P = (F_TYPE**)calloc(dp_num*dp_num, sizeof(F_TYPE));
+	assert(mtx_P != NULL);
+
+	// Calc the diagonal A' matrix
+	while (!is_diagonal_matrix(io_mtx_A))
+	{	
+		calc_next_mtx_A_javobi(io_mtx_A, dp_num);
+	}
+
+	// free locals
+	free(mtx_P);
+}
 
 int kmeans(
 	int dim,
