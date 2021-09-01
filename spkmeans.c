@@ -12,6 +12,7 @@
 #define F_TYPE_FORMAT_SPEC ("%Lf")
 #define F_TYPE_OUTPUT_FORMAT_SPEC ("%.4Lf")
 #define F_TYPE_MAX (LDBL_MAX)
+#define JACOBI_CONVERGENCE_SIGMA (0.001)
 
 enum status
 {
@@ -108,7 +109,7 @@ void vec_div_by_scalar(F_TYPE* dst, F_TYPE* a, F_TYPE s, int dim)
 }
 
 /* 	Returns TRUE if a's values are equal to b's values
-	of course a and be must be of the same size, which is dim*vec_num . */
+	of course a and b must be of the same size, which is dim*vec_num. */
 int cmp_matrices(F_TYPE** a, F_TYPE** b, int dim, int vec_num)
 {
 	int i = 0;
@@ -122,8 +123,6 @@ int cmp_matrices(F_TYPE** a, F_TYPE** b, int dim, int vec_num)
 	}
 	return TRUE;
 }
-
-
 
 /*===========*/
 /* algorithm */
@@ -240,24 +239,73 @@ int assign_to_cluster(F_TYPE* dp, F_TYPE** centroids,
 }
 
 /**
- * @details: This method received a matrix and returns True if it's diagonal, false
- * 			 otherwise.
- * @note This method uses 'Convergence' method, as described in the specification
- * 		 document.
- */
-int is_diagonal_matrix(F_TYPE** mtx)
-{
-	// TODO : See "6. convergence"
+ * @details Calculates the multiplication of metrices a and b and insert 
+ *			it's values to mul.
+ * @note Cannot work 'In-Place' (mul != a && mul != b), does not check though.
+ */ 
+void mul_matrices(F_TYPE** a, F_TYPE** b, int a_rows_num, int a_columns_num, F_TYPE** mul)
+{	
+	int i = 0, j = 0, k = 0;
+	
+	for(; i < a_rows_num; i++)    
+	{    
+		for(; j < a_columns_num; j++)    
+		{    
+
+		mul[i][j]=0;    
+
+			for(; k < a_columns_num; k++)    
+			{    
+				mul[i][j] += a[i][k]*b[k][j];    
+			}    
+		}    
+	}   
 }
 
+/**
+ * @details Calculates the (Frobenius Norm(mtx))^2 - sum((diagonal values)^2), 
+ * 			which is called 'off(mtx)^2' of mtx in the specification document.
+ */
+int calc_off(F_TYPE** mtx, size_t mtx_columns_num, size_t mtx_rows_num)
+{
+	int off = 0;
+	size_t i = 1, j = 0;
+
+	for (;i < mtx_columns_num; i++)
+	{
+		for (;j < i; j++)
+		{
+			off += 2 * pow(mtx[i][j], 2);
+		}
+	}
+
+	return off;
+}
+
+/**
+ * @details Calculates the next A' and P, given the current A.
+ */ 
 enum status calc_next_mtx_A_javobi(F_TYPE** io_mtx_A, int dp_num, F_TYPE** o_mtx_P)
 {	
-	size_t i = 0, j = 0;
-	F_TYPE theta = 0, t = 0, c = 0, s = 0;
+	int use_org_mtx_flag = TRUE;
+	size_t i = 0, j = 0, max = 0, k = 0, l = 0;
+	F_TYPE theta = 0, t = 0, c = 0, s = 0, temp = 0;
 
-	// Find the largest absolute value A_ij
+	// TODO : Find the largest off-diagonal, absolute value A_ij in io_mtx_A
+	for (k = 1; k < dp_num; k++)
+	{
+		for (; l < k; l++)
+		{
+			if (abs(io_mtx_A[k][l] > max))
+			{
+				i = k;
+				j = l;
+				max = abs(io_mtx_A[k][l]);
+			}
+		}
+	}
 	
-	if (io_mtx_A[i][j] != 0)
+	if (max != 0)
 	{
 		// Calculate Theta, t, c
 		theta = (io_mtx_A[j][j] - io_mtx_A[i][i]) / (2*io_mtx_A[i][j]);
@@ -277,7 +325,7 @@ enum status calc_next_mtx_A_javobi(F_TYPE** io_mtx_A, int dp_num, F_TYPE** o_mtx
 		// Calculate the matrix rotation matrix mtx_P
 		memset(o_mtx_P, 0, dp_num*dp_num*sizeof(F_TYPE));
 
-		for (int k = 0; k < dp_num; k++)
+		for (k = 0; k < dp_num; k++)
 		{
 			o_mtx_P[k][k] = 1;
 		}
@@ -287,7 +335,29 @@ enum status calc_next_mtx_A_javobi(F_TYPE** io_mtx_A, int dp_num, F_TYPE** o_mtx
 		o_mtx_P[i][j] = s;
 		o_mtx_P[j][i] = -s;
 
-		// TODO: Needs to add matrix multiplication
+		// Performing step as described in sub-paragraph 6
+		for (k = 0; k < dp_num; k++)
+		{
+			if (k != i && k != j)
+			{
+				io_mtx_A[k][i] = c*io_mtx_A[k][i] - s*io_mtx_A[k][j];
+				io_mtx_A[i][k] = io_mtx_A[k][i];
+
+				io_mtx_A[k][j] = c*io_mtx_A[k][j] + s*io_mtx_A[k][i];
+				io_mtx_A[j][k] = io_mtx_A[k][j];
+			}
+		}
+
+		temp = io_mtx_A[i][i] - io_mtx_A[j][j];
+
+		io_mtx_A[i][i] = pow(c,2)*io_mtx_A[i][i] + pow(s,2)*io_mtx_A[j][j]
+						- 2*s*c*io_mtx_A[i][j];
+
+		io_mtx_A[j][j] = pow(s,2)*io_mtx_A[i][i] + pow(c,2)*io_mtx_A[j][j]
+						+ 2*s*c*io_mtx_A[i][j];
+
+		io_mtx_A[i][j] = (pow(c,2) - pow(s,2))*io_mtx_A[i][j] + s*c*temp;
+
 		return Success;
 	}
 
@@ -307,16 +377,37 @@ enum status calc_next_mtx_A_javobi(F_TYPE** io_mtx_A, int dp_num, F_TYPE** o_mtx
 int find_eigenvalues_jacobi(F_TYPE** io_mtx_A, int dp_num, F_TYPE** o_mtx_V)
 {	
 	// Declare locals
-	F_TYPE** mtx_P = NULL;
+	F_TYPE** mtx_P = NULL, **mtx_V_temp = NULL;
+	enum status s = Success;
+	int prev_off = 0, curr_off = 0;
 
 	// Allocate locals
 	mtx_P = (F_TYPE**)calloc(dp_num*dp_num, sizeof(F_TYPE));
 	assert(mtx_P != NULL);
+	mtx_V_temp = (F_TYPE**)calloc(dp_num*dp_num, sizeof(F_TYPE));
+	assert(mtx_V_temp != NULL);
+
+	// Doing the first loop's step in order to save the first P in o_mtx_V
+	prev_off = calc_off(io_mtx_A, dp_num, dp_num);
+
+	// Calculating the first A' and P matrices
+	s = calc_next_mtx_A_javobi(io_mtx_A, dp_num, o_mtx_V);
+
+	curr_off = calc_off(io_mtx_A, dp_num, dp_num);
 
 	// Calc the diagonal A' matrix
-	while (!is_diagonal_matrix(io_mtx_A))
-	{	
-		calc_next_mtx_A_javobi(io_mtx_A, dp_num);
+	while (JACOBI_CONVERGENCE_SIGMA > curr_off - prev_off && s != Finish)
+	{
+		// Calculating the next A and P matrices
+		s = calc_next_mtx_A_javobi(io_mtx_A, dp_num, mtx_P);
+		
+		// Calculating the next V matrix
+		memcpy(mtx_V_temp, o_mtx_V, dp_num*dp_num*sizeof(F_TYPE));
+		mul_matrices(mtx_V_temp, mtx_P, dp_num, dp_num, o_mtx_V);
+
+		// Calculating the function 'off^2' of the new matrix
+		prev_off = curr_off;
+		curr_off = calc_off(io_mtx_A, dp_num, dp_num);
 	}
 
 	// free locals
@@ -379,8 +470,6 @@ int kmeans(
 		/* copy the i'th vector to the i'th centroid */
 		memcpy(output_centrds[i], input_dps[i], sizeof(F_TYPE)*dim);
 	}
-
-
 
 	/*======================*/
 	/* algorithm iterations */
