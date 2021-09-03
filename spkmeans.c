@@ -14,8 +14,7 @@
 #define F_TYPE_MAX (LDBL_MAX)
 #define JACOBI_CONVERGENCE_SIGMA (0.001)
 
-enum status
-{
+enum status {
 	Error,
 	Success,
 	Finish
@@ -75,9 +74,8 @@ F_TYPE calc_l2_norm(F_TYPE* a, F_TYPE* b, int dim)
 	F_TYPE ret = 0;
 	int i = 0;
 	for (i = 0; i < dim; ++i)
-	{
 		ret += (a[i] - b[i]) * (a[i] - b[i]);
-	}
+
 	return sqrt(ret);
 }
 
@@ -117,12 +115,32 @@ int cmp_matrices(F_TYPE** a, F_TYPE** b, int dim, int vec_num)
 	for (i = 0; i < vec_num; ++i)
 	{
 		for (j = 0; j < dim; ++j)
-		{
 			if (a[i][j] != b[i][j]) return FALSE;
-		}
 	}
 	return TRUE;
 }
+
+
+/*	Calculates the multiplication of square metrices
+	a and b. Then insert it's values to mul. */
+void mul_square_matrices(
+	F_TYPE** a, F_TYPE** b, 
+	int n, F_TYPE** mul)
+{	
+	int i = 0, j = 0, k = 0;
+	
+	for(i=0; i < n; i++) {    
+		for(j=0; j < n; j++) {
+
+			mul[i][j]=0;
+			for(; k < n; k++)    
+				mul[i][j] += a[i][k]*b[k][j];    
+
+		}   
+	}
+}
+
+
 
 /*===========*/
 /* algorithm */
@@ -156,7 +174,7 @@ enum status calc_weighted_adjacency_matrix(
 	return s;
 }
 
-int calc_diagonal_degree_matrix(
+enum status calc_diagonal_degree_matrix(
 	F_TYPE** wam, int dp_num,
 	F_TYPE** ddg)
 {
@@ -164,7 +182,7 @@ int calc_diagonal_degree_matrix(
 	for (i = 0; i < dp_num; ++i)
 		ddg[i][i] = element_sum(wam[i], dp_num);
 
-	return 0;
+	return Success;
 }
 
 
@@ -173,11 +191,11 @@ enum status calc_normalized_graph_laplacian(
 	F_TYPE** lnorm)
 {
 	int i, j;
-	enum status s = Success;
+	enum status status = Success;
 	F_TYPE eye = 0;
 
-	/* first of all - calc inverse-sqare-root of ddg */
-	/*-----------------------------------------------*/
+	/* calc inverse-sqare-root of ddg */
+	/*--------------------------------*/
 
 	/* memory allocation */
 	F_TYPE** ddg_invsqrt = NULL;
@@ -193,7 +211,8 @@ enum status calc_normalized_graph_laplacian(
 	for (i = 0; i < dp_num; ++i)
 		ddg_invsqrt[i][i] = INV_SQRT(ddg[i][i]);
 
-	if (0 != errno) s = Error;
+	if (0 != errno) status = Error;
+
 
 	/* calc lnorm */
 	/*------------*/
@@ -205,20 +224,20 @@ enum status calc_normalized_graph_laplacian(
 			if (i == j) eye = 1; else eye = 0;
 			/* calc lnorm */
 			lnorm[i][j] = eye - (ddg_invsqrt[i][i]*wam[i][j]*ddg_invsqrt[j][j]);
-
 		}
 	}
 
 	free(ddg_invsqrt);
 	free(ddg_invsqrt_mem);
 
-	return s;
+	return status;
 }
 
 
 
-int assign_to_cluster(F_TYPE* dp, F_TYPE** centroids,
-					  int dim, int k)
+int assign_to_cluster(
+	F_TYPE* dp, F_TYPE** centroids,
+	int dim, int k)
 {
 	F_TYPE min_dist = F_TYPE_MAX;
 	int min_dist_centrd_idx = 0;
@@ -238,29 +257,7 @@ int assign_to_cluster(F_TYPE* dp, F_TYPE** centroids,
 	return min_dist_centrd_idx;
 }
 
-/**
- * @details Calculates the multiplication of metrices a and b and insert 
- *			it's values to mul.
- * @note Cannot work 'In-Place' (mul != a && mul != b), does not check though.
- */ 
-void mul_matrices(F_TYPE** a, F_TYPE** b, int a_rows_num, int a_columns_num, F_TYPE** mul)
-{	
-	int i = 0, j = 0, k = 0;
-	
-	for(; i < a_rows_num; i++)    
-	{    
-		for(; j < a_columns_num; j++)    
-		{    
 
-		mul[i][j]=0;    
-
-			for(; k < a_columns_num; k++)    
-			{    
-				mul[i][j] += a[i][k]*b[k][j];    
-			}    
-		}    
-	}   
-}
 
 /**
  * @details Calculates the (Frobenius Norm(mtx))^2 - sum((diagonal values)^2), 
@@ -285,7 +282,9 @@ int calc_off(F_TYPE** mtx, size_t mtx_columns_num, size_t mtx_rows_num)
 /**
  * @details Calculates the next A' and P, given the current A.
  */ 
-enum status calc_next_mtx_A_javobi(F_TYPE** io_mtx_A, int dp_num, F_TYPE** o_mtx_P)
+enum status calc_jacobi_iteration(
+	F_TYPE** io_mtx_A, int dp_num,
+	F_TYPE** o_mtx_P)
 {	
 	int use_org_mtx_flag = TRUE;
 	size_t i = 0, j = 0, max = 0, k = 0, l = 0;
@@ -307,35 +306,30 @@ enum status calc_next_mtx_A_javobi(F_TYPE** io_mtx_A, int dp_num, F_TYPE** o_mtx
 	
 	if (max != 0)
 	{
-		// Calculate Theta, t, c
+		/* Calculate Theta, t, c */
 		theta = (io_mtx_A[j][j] - io_mtx_A[i][i]) / (2*io_mtx_A[i][j]);
 
 		if (theta > 0)
-		{
 			t = 1 / theta + sqrt(pow(theta, 2) + 1);
-		}
+
 		else
-		{
 			t = -1 / -theta + sqrt(pow(theta, 2) + 1);
-		}
 
 		c = 1 / sqrt(pow(t, 2) + 1);
 		s = t*c;
 
-		// Calculate the matrix rotation matrix mtx_P
+		/* Calculate the matrix rotation matrix mtx_P */
 		memset(o_mtx_P, 0, dp_num*dp_num*sizeof(F_TYPE));
 
 		for (k = 0; k < dp_num; k++)
-		{
 			o_mtx_P[k][k] = 1;
-		}
 
 		o_mtx_P[i][i] = c;
 		o_mtx_P[j][j] = c;
 		o_mtx_P[i][j] = s;
 		o_mtx_P[j][i] = -s;
 
-		// Performing step as described in sub-paragraph 6
+		/* Performing step as described in sub-paragraph 6 */
 		for (k = 0; k < dp_num; k++)
 		{
 			if (k != i && k != j)
@@ -374,46 +368,51 @@ enum status calc_next_mtx_A_javobi(F_TYPE** io_mtx_A, int dp_num, F_TYPE** o_mtx
  * 		- This method does not check the validity of mtx_A, this method should be
  * 		  used cautiously only on symmetric matrices.
  */ 
-int find_eigenvalues_jacobi(F_TYPE** io_mtx_A, int dp_num, F_TYPE** o_mtx_V)
+int find_eigenvalues_jacobi(
+	F_TYPE** io_mtx_A, int dp_num,
+	F_TYPE** o_mtx_V)
 {	
-	// Declare locals
+	/* Declare locals */
 	F_TYPE** mtx_P = NULL, **mtx_V_temp = NULL;
-	enum status s = Success;
+	enum status status = Success;
 	int prev_off = 0, curr_off = 0;
 
-	// Allocate locals
+	/* Allocate locals */
 	mtx_P = (F_TYPE**)calloc(dp_num*dp_num, sizeof(F_TYPE));
 	assert(mtx_P != NULL);
 	mtx_V_temp = (F_TYPE**)calloc(dp_num*dp_num, sizeof(F_TYPE));
 	assert(mtx_V_temp != NULL);
 
-	// Doing the first loop's step in order to save the first P in o_mtx_V
+	/* Doing the first loop's step in order to save the first P in o_mtx_V */
 	prev_off = calc_off(io_mtx_A, dp_num, dp_num);
 
-	// Calculating the first A' and P matrices
-	s = calc_next_mtx_A_javobi(io_mtx_A, dp_num, o_mtx_V);
+	/* Calculating the first A' and P matrices */
+	status = calc_jacobi_iteration(io_mtx_A, dp_num, o_mtx_V);
 
 	curr_off = calc_off(io_mtx_A, dp_num, dp_num);
 
-	// Calc the diagonal A' matrix
-	while (JACOBI_CONVERGENCE_SIGMA > curr_off - prev_off && s != Finish)
+	/* Calc the diagonal A' matrix */
+	while (JACOBI_CONVERGENCE_SIGMA > curr_off - prev_off && status != Finish)
 	{
-		// Calculating the next A and P matrices
-		s = calc_next_mtx_A_javobi(io_mtx_A, dp_num, mtx_P);
+		/* Calculating the next A and P matrices */
+		status = calc_jacobi_iteration(io_mtx_A, dp_num, mtx_P);
 		
-		// Calculating the next V matrix
+		/* Calculating the next V matrix */
 		memcpy(mtx_V_temp, o_mtx_V, dp_num*dp_num*sizeof(F_TYPE));
-		mul_matrices(mtx_V_temp, mtx_P, dp_num, dp_num, o_mtx_V);
+		mul_square_matrices(mtx_V_temp, mtx_P, dp_num, o_mtx_V);
 
-		// Calculating the function 'off^2' of the new matrix
+		/* Calculating the function 'off^2' of the new matrix */
 		prev_off = curr_off;
 		curr_off = calc_off(io_mtx_A, dp_num, dp_num);
 	}
 
-	// free locals
+	/* free locals */
 	free(mtx_P);
+
+	return Success;
 }
 
+/* kmeans algorithm, from hw 1 */
 int kmeans(
 	int dim,
 	F_TYPE** input_dps, int dp_num,
@@ -783,7 +782,7 @@ int main(int argc, char const *argv[])
 		ddg[i] = ddg_mem + (i*dp_num);
 
 
-	if (0 != calc_diagonal_degree_matrix(wam, dp_num, ddg)) {
+	if (Success != calc_diagonal_degree_matrix(wam, dp_num, ddg)) {
 		ERROR_PRINT();
 		goto ddg_free;
 	}
