@@ -1,18 +1,20 @@
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
 #include <string.h>
 #include <assert.h>
 #include <float.h>
-#include <math.h>
 
 #define TRUE (1)
 #define FALSE (0)
-#define F_TYPE long double
-#define F_TYPE_FORMAT_SPEC ("%Lf")
-#define F_TYPE_OUTPUT_FORMAT_SPEC ("%.4Lf")
-#define F_TYPE_MAX (LDBL_MAX)
+#define F_TYPE double
+#define F_TYPE_FORMAT_SPEC ("%lf")
+#define F_TYPE_OUTPUT_FORMAT_SPEC ("%.4f")
+#define F_TYPE_MAX (DBL_MAX)
+#define F_TYPE_ABS(x) (fabs(x))
 #define JACOBI_CONVERGENCE_SIGMA (0.001)
+
 
 enum status {
 	Error,
@@ -263,7 +265,7 @@ int assign_to_cluster(
  * @details Calculates the (Frobenius Norm(mtx))^2 - sum((diagonal values)^2), 
  * 			which is called 'off(mtx)^2' of mtx in the specification document.
  */
-int calc_off(F_TYPE** mtx, size_t mtx_columns_num, size_t mtx_rows_num)
+int calc_off(F_TYPE** mtx, size_t mtx_columns_num)
 {
 	int off = 0;
 	size_t i = 1, j = 0;
@@ -271,9 +273,7 @@ int calc_off(F_TYPE** mtx, size_t mtx_columns_num, size_t mtx_rows_num)
 	for (;i < mtx_columns_num; i++)
 	{
 		for (;j < i; j++)
-		{
 			off += 2 * pow(mtx[i][j], 2);
-		}
 	}
 
 	return off;
@@ -286,20 +286,26 @@ enum status calc_jacobi_iteration(
 	F_TYPE** io_mtx_A, int dp_num,
 	F_TYPE** o_mtx_P)
 {	
-	int use_org_mtx_flag = TRUE;
-	size_t i = 0, j = 0, max = 0, k = 0, l = 0;
+	/* TODO: Why were these declared size_t? */
+	/*size_t i = 0, j = 0, max = 0, k = 0, l = 0;*/
+	int k = 0;
+	int l = 0;
+	int i = 0;
+	int j = 0;
+	F_TYPE max = 0;
+
 	F_TYPE theta = 0, t = 0, c = 0, s = 0, temp = 0;
 
-	// TODO : Find the largest off-diagonal, absolute value A_ij in io_mtx_A
+	/* TODO : Find the largest off-diagonal, absolute value A_ij in io_mtx_A */
 	for (k = 1; k < dp_num; k++)
 	{
 		for (; l < k; l++)
 		{
-			if (abs(io_mtx_A[k][l] > max))
+			if (F_TYPE_ABS(io_mtx_A[k][l]) > max)
 			{
 				i = k;
 				j = l;
-				max = abs(io_mtx_A[k][l]);
+				max = F_TYPE_ABS(io_mtx_A[k][l]);
 			}
 		}
 	}
@@ -384,12 +390,12 @@ int find_eigenvalues_jacobi(
 	assert(mtx_V_temp != NULL);
 
 	/* Doing the first loop's step in order to save the first P in o_mtx_V */
-	prev_off = calc_off(io_mtx_A, dp_num, dp_num);
+	prev_off = calc_off(io_mtx_A, dp_num);
 
 	/* Calculating the first A' and P matrices */
 	status = calc_jacobi_iteration(io_mtx_A, dp_num, o_mtx_V);
 
-	curr_off = calc_off(io_mtx_A, dp_num, dp_num);
+	curr_off = calc_off(io_mtx_A, dp_num);
 
 	/* Calc the diagonal A' matrix */
 	while (JACOBI_CONVERGENCE_SIGMA > curr_off - prev_off && status != Finish)
@@ -403,7 +409,7 @@ int find_eigenvalues_jacobi(
 
 		/* Calculating the function 'off^2' of the new matrix */
 		prev_off = curr_off;
-		curr_off = calc_off(io_mtx_A, dp_num, dp_num);
+		curr_off = calc_off(io_mtx_A, dp_num);
 	}
 
 	/* free locals */
