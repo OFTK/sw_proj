@@ -125,6 +125,8 @@ int cmp_matrices(F_TYPE** a, F_TYPE** b, int dim, int vec_num)
 
 /*	Calculates the multiplication of square metrices
 	a and b. Then insert it's values to mul. */
+/* 	TODO: if matrices are diagonal or almost diagonal 
+	you can calculate in linear time */
 void mul_square_matrices(
 	F_TYPE** a, F_TYPE** b, 
 	int n, F_TYPE** mul)
