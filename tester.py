@@ -72,6 +72,11 @@ def print_matrix(matrix):
             print('{:.3f},'.format(dp[j]), end='')
         print('{:.3f}'.format(dp[-1]))
 
+def print_vector(vector):
+    for i in range(len(vector)-1):
+        print('{:.3f},'.format(vector[i]), end='')
+    print('{:.3f}'.format(vector[len(vector)-1]))
+
 def build_P_matrix(N, i, j, c, s):
     result = np.eye(N)
     result[i][i] = c
@@ -136,7 +141,10 @@ def build_jacobi_matrix(lmatrix):
         cur_f_norm = calc_off(jacobi_values)
         if abs(cur_f_norm - prev_f_norm) < EPSILON:
             break
-    return np.ndarray.tolist(jacobi_values), np.ndarray.tolist(jacobi_vectors)
+
+    eigenvalues = [jacobi_values[i][i] for i in range(n_size)]
+    eigenvectors = np.ndarray.tolist(jacobi_vectors)
+    return eigenvalues, eigenvectors
 
 
 
@@ -160,7 +168,7 @@ if __name__ == '__main__':
 	print("")
 
 	eigenvalues, eigenvectors = build_jacobi_matrix(lnorm)
-	print_matrix(eigenvalues)
+	print_vector(eigenvalues)
 	print("")
 	print_matrix(eigenvectors)
 	print("")
