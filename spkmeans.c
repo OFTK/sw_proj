@@ -281,8 +281,6 @@ int assign_to_cluster(
 	return min_dist_centrd_idx;
 }
 
-
-
 /**
  * @details Calculates the (Frobenius Norm(mtx))^2 - sum((diagonal values)^2), 
  * 			which is called 'off(mtx)^2' of mtx in the specification document.
@@ -395,7 +393,8 @@ enum status calc_jacobi_iteration(
  */ 
 enum status find_eigenvalues_jacobi(
 	F_TYPE** io_mtx_A, int dp_num,
-	F_TYPE** o_mtx_V)
+	F_TYPE** o_mtx_V,
+	F_TYPE*  o_mtx_V_mem)
 {	
 	/* Declare locals */
 	F_TYPE** mtx_P = NULL; 
@@ -439,7 +438,7 @@ enum status find_eigenvalues_jacobi(
 		status = calc_jacobi_iteration(io_mtx_A, dp_num, mtx_P);
 		
 		/* Calculating the next V matrix */
-		memcpy(mtx_V_temp, o_mtx_V, dp_num*dp_num*sizeof(F_TYPE));
+		memcpy(mtx_V_temp_mem, o_mtx_V_mem, dp_num*dp_num*sizeof(F_TYPE));
 		mul_square_matrices(mtx_V_temp, mtx_P, dp_num, o_mtx_V);
 
 		/* Calculating the function 'off^2' of the new matrix */
