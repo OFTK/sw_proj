@@ -42,8 +42,6 @@ enum status {
 /*======*/
 /* misc */
 /*======*/
-/* TODO: for an error in the input file, should i print error or invalid_input? */
-/* TODO: replace all asserts for error prints */
 #define PRINT_ERROR() (printf("An Error Has Occured"))
 #define PRINT_INVALID_INPUT() (printf("Invalid Input!"))
 
@@ -141,8 +139,6 @@ void transpose_matrix(F_TYPE** mtx, F_TYPE**o_t_mtx, int n, int m)
 
 /*	Calculates the multiplication of square metrices
 	a and b. Then insert it's values to mul. */
-/* 	TODO: if matrices are diagonal or almost diagonal 
-	you can calculate in linear time */
 void mul_square_matrices(
 	F_TYPE** a, F_TYPE** b, 
 	int n, F_TYPE** mul)
@@ -214,10 +210,17 @@ enum status calc_normalized_graph_laplacian(
 	/* memory allocation */
 	F_TYPE** ddg_invsqrt = NULL;
 	F_TYPE* ddg_invsqrt_mem = NULL;
+
 	ddg_invsqrt_mem = calloc(sizeof(F_TYPE), dp_num*dp_num);
-	assert(ddg_invsqrt_mem != NULL);
+	if (NULL == ddg_invsqrt_mem) return Error;
+
 	ddg_invsqrt = calloc(sizeof(F_TYPE*), dp_num);
-	assert(ddg_invsqrt != NULL);
+	if (NULL == ddg_invsqrt) 
+	{
+		free(ddg_invsqrt_mem);
+		return Error;
+	};
+
 	for (i = 0; i < dp_num; ++i)
 		ddg_invsqrt[i] = ddg_invsqrt_mem + (i*dp_num);
 
@@ -399,6 +402,7 @@ enum status find_eigenvalues_jacobi(
 	int prev_off = 0, curr_off = 0;
 
 	/* Allocate locals */
+	/* TODO: replace asserts with error returns */
 	mtx_P = (F_TYPE**)calloc(dp_num*dp_num, sizeof(F_TYPE));
 	assert(mtx_P != NULL);
 	mtx_V_temp = (F_TYPE**)calloc(dp_num*dp_num, sizeof(F_TYPE));
@@ -516,21 +520,45 @@ enum status kmeans(
 	/* memory allocation */
 	/*===================*/
 	last_iter_centrds_mem = calloc(sizeof(F_TYPE), k*dim);
-	assert(last_iter_centrds_mem != NULL);
+	if (NULL == last_iter_centrds_mem)
+	{
+		status = Error;
+		goto finish_kmeans;
+	}
+
 	last_iter_centrds = calloc( sizeof(F_TYPE*) , k);
-	assert(last_iter_centrds != NULL);
+	if (NULL == last_iter_centrds)
+	{
+		status = Error;
+		goto finish_kmeans;
+	}
+
 	for (i = 0; i < k; ++i)
 		last_iter_centrds[i] = last_iter_centrds_mem + (i*dim);
 
 
 	centrds_sum_mem = calloc(sizeof(F_TYPE), k*dim);
-	assert(centrds_sum_mem != NULL);
+	if (NULL == centrds_sum_mem)
+	{
+		status = Error;
+		goto finish_kmeans;
+	}
+
 	centrds_sum = calloc(sizeof(F_TYPE*), k);
-	assert(centrds_sum != NULL);
+	if (NULL == centrds_sum)
+	{
+		status = Error;
+		goto finish_kmeans;
+	}
+
 	for (i = 0; i < k; ++i)
 		centrds_sum[i] = centrds_sum_mem + (i*dim);
 	centrds_ref_cnt = calloc(sizeof(int), k);
-	assert(centrds_ref_cnt != NULL);
+	if (NULL == centrds_ref_cnt)
+	{
+		status = Error;
+		goto finish_kmeans;
+	}
 
 
 
@@ -601,6 +629,7 @@ enum status kmeans(
 	}
 
 
+	finish_kmeans:
 	free(last_iter_centrds);
 	free(last_iter_centrds_mem);
 	free(centrds_sum_mem);
@@ -661,6 +690,7 @@ int main(int argc, char const *argv[])
 	int k = 0;
 	int max_iter = -1;  /* -1 symbolized no upper bound for max_iter. */
  	int goal = -1;
+ 	char* file_suffix;
  	FILE* finput;
 
 
@@ -699,7 +729,7 @@ int main(int argc, char const *argv[])
 	F_TYPE* u_mtx_mem = NULL;
 	F_TYPE** t_mtx = NULL;
 	F_TYPE* t_mtx_mem = NULL;
-	F_TYPE* dummy_vector = NULL;
+	F_TYPE* zeroes_vector = NULL;
 
 	/* memory for returned centroids */
 	F_TYPE** output_centroids = NULL;
@@ -736,8 +766,18 @@ int main(int argc, char const *argv[])
 		return Error;
 	}
 
-	/* TODO: should error here be invalid input or error? */
-	/* TODO: should we validate filename suffix? */
+
+	/* check input file suffix */
+	file_suffix = strrchr(argv[3],'.');
+	if ((NULL == file_suffix) ||
+		(strcmp(file_suffix,".csv") == 0))
+	{
+		DEBUG_PRINT("input file isn't .txt nor .csv");
+		PRINT_INVALID_INPUT();
+		return Error;
+	}
+
+	/* open input datapoints file */
 	finput = fopen(argv[3], "r");
 	if (NULL == finput) {
 		DEBUG_PRINT("fopen returned with error");
@@ -756,8 +796,7 @@ int main(int argc, char const *argv[])
 		if (scan_status < 0) {
 			DEBUG_PRINT("bad input file format\n");
 			PRINT_INVALID_INPUT();
-			status = Error;
-			goto close;
+			goto on_input_error;
 		}
 
 		/* when done reading the file */
@@ -765,8 +804,7 @@ int main(int argc, char const *argv[])
 			if (dim == 0) {
 				DEBUG_PRINT("not able to read any num from file.\n");
 				PRINT_INVALID_INPUT();
-				status = Error;
-				goto close;
+				goto on_input_error;
 
 			}
 			if (curr_dim != 0) {
@@ -775,13 +813,17 @@ int main(int argc, char const *argv[])
 					dp_num, curr_dim);
 				#endif
 				PRINT_INVALID_INPUT();
-				status = Error;
-				goto close;
+				goto on_input_error;
 			}
 
 			/* if scanned succesfully - allocate pointers array */
 			input_dps = realloc(input_dps, (sizeof(F_TYPE*)*dp_num));
-			assert(input_dps != NULL);
+			if (NULL == input_dps)
+			{
+				PRINT_ERROR();
+				goto on_input_error;
+			}
+
 			for (i = 0; i < dp_num; ++i)
 				input_dps[i] = input_dp_mem+(i*dim);
 
@@ -793,8 +835,10 @@ int main(int argc, char const *argv[])
 		if (dp_num == 0) {
 			dim++;
 			curr_vector = realloc(curr_vector, (sizeof(F_TYPE)*dim));
-			if NULL
-			assert(curr_vector != NULL);
+			if (NULL == curr_vector) {
+				PRINT_ERROR();
+				goto on_input_error;				
+			}
 		}
 
 		/* add the scanned F_TYPE to the current vector */
@@ -805,8 +849,7 @@ int main(int argc, char const *argv[])
 				dim, (dp_num+1), curr_dim);
 			#endif
 			PRINT_INVALID_INPUT();
-			status = Error;
-			goto close;
+			goto on_input_error;
 		}
 		curr_vector[curr_dim-1] = scanned_num;
 
@@ -815,26 +858,36 @@ int main(int argc, char const *argv[])
 			matrix and memcpy the vector to the matrix */
 		if (scan_status == 1) {
 			if (curr_dim != dim) {
+				# ifdef DEBUG
 				printf("bad input vector length: first vector is of length %d while %d'th vector is of length %d\n", 
 					dim, (dp_num+1), curr_dim);
-				status = Error;
-				goto close;
+				#endif
+				PRINT_INVALID_INPUT();
+				goto on_input_error;
 			}
 
 			dp_num++;
 
 			input_dp_mem = realloc(input_dp_mem, (sizeof(F_TYPE)*(dp_num*dim)));
-			assert(input_dp_mem != NULL);
+			if (NULL == input_dp_mem) {
+				PRINT_ERROR();
+				goto on_input_error;				
+			}
+
 			memcpy(input_dp_mem+((dp_num-1)*dim), curr_vector, sizeof(F_TYPE)*dim);
 
 			curr_dim = 0;
 		}
 	}
+
+	/* in case of success */
 	free(curr_vector);
 	fclose(finput);
 	goto algorithm;
 
-	close:
+	/* in case of error */
+	on_input_error:
+		status = Error;
 		free(input_dp_mem);
 		free(input_dps);
 		free(curr_vector);
@@ -850,15 +903,19 @@ int main(int argc, char const *argv[])
 
 	/* allocate memory for WAM */
 	wam_mem = calloc(sizeof(F_TYPE), dp_num*dp_num);
-	assert(wam_mem != NULL);
 	wam = calloc(sizeof(F_TYPE*), dp_num);
-	assert(wam != NULL);
+	if ((NULL == wam_mem) || (NULL == wam_mem))
+	{
+		status = Error;
+		goto end_wam_stage;
+	}
 	for (i = 0; i < dp_num; ++i)
 		wam[i] = wam_mem + (i*dp_num);
 
 	/* calc Weighted Adjacency Matrix */
 	status = calc_weighted_adjacency_matrix(input_dps, dp_num, dim, wam);
 
+	end_wam_stage:
 	/* free no-longed needed memory */
 	free(input_dps); free(input_dp_mem);
 
@@ -881,9 +938,12 @@ int main(int argc, char const *argv[])
 
 	/* allocate memory for DDG */
 	ddg_mem = calloc(sizeof(F_TYPE), dp_num*dp_num);
-	assert(ddg_mem != NULL);
 	ddg = calloc(sizeof(F_TYPE*), dp_num);
-	assert(ddg != NULL);
+	if ((NULL == ddg) || (NULL == ddg_mem)) {
+		status = Error;
+		goto end_ddg_stage;
+	}
+
 	for (i = 0; i < dp_num; ++i)
 		ddg[i] = ddg_mem + (i*dp_num);
 
@@ -892,7 +952,9 @@ int main(int argc, char const *argv[])
 
 
 	/* finish run if needed */
+
 	if ((Success != status)  || (goal == 2)) {
+		end_ddg_stage:
 		free(wam); free(wam_mem);
 
 		if (Success != status)
@@ -911,14 +973,18 @@ int main(int argc, char const *argv[])
 
 	/* allocate memory for lnorm */
 	lnorm_mem = calloc(sizeof(F_TYPE), dp_num*dp_num);
-	assert(lnorm_mem != NULL);
 	lnorm = calloc(sizeof(F_TYPE*), dp_num);
-	assert(lnorm != NULL);
+	if ((NULL == lnorm) || (NULL == lnorm_mem)) {
+		status = Error;
+		goto end_lnorm_stage;
+	}
+
 	for (i = 0; i < dp_num; ++i)
 		lnorm[i] = lnorm_mem + (i*dp_num);
 
 	status = calc_normalized_graph_laplacian(wam, ddg, dp_num, lnorm);
 
+	end_lnorm_stage:
 	/* free no-longer needed memory */
 	free(wam); free(wam_mem);
 	free(ddg); free(ddg_mem);
@@ -941,9 +1007,12 @@ int main(int argc, char const *argv[])
 
 	/* allocate memory for eigenvectors matrix */
 	eigenvectors_mem = calloc(sizeof(F_TYPE), dp_num*dp_num);
-	assert(eigenvectors_mem != NULL);
 	eigenvectors = calloc(sizeof(F_TYPE*), dp_num);
-	assert(eigenvectors != NULL);
+	if ((NULL == eigenvectors) || (NULL == eigenvectors_mem)) {
+		status = Error;
+		goto end_jacobi_stage;
+	}
+
 	for (i = 0; i < dp_num; ++i)
 		eigenvectors[i] = eigenvectors_mem + (i*dp_num);
 
@@ -952,18 +1021,7 @@ int main(int argc, char const *argv[])
 		goto end_jacobi_stage;
 	}
 
-	/**
-	* @details This method received a symmetric matrix, A. It returns a status value,
-	* 			 an eignvalues matrix pointed by mtx_A (changes the received matrix) and
-	* 			 an eignvectors matrix pointed by mtx_V.
-	* @note
-	* 		- This method perform in-place work on mtx_A. If you wish to save the values
-	* 		  of that matrix, you should save it before using this function.
-	* 		- This method does not check the validity of mtx_A, this method should be
-	* 		  used cautiously only on symmetric matrices.
-	*/ 
 	status =  find_eigenvalues_jacobi(lnorm, dp_num, eigenvectors);
-
 
 	/* allocate memory for eigenvalues */
 	eigenvalues = calloc(sizeof(f_and_idx), dp_num);
@@ -993,13 +1051,16 @@ int main(int argc, char const *argv[])
 	/*--------------------------*/
 	/* allocate memory for eigenvectors matrix */
 	k_eigenvectors_mem = calloc(sizeof(F_TYPE), k*dp_num);
-	assert(k_eigenvectors_mem != NULL);
 	k_eigenvectors = calloc(sizeof(F_TYPE*), k);
-	assert(k_eigenvectors != NULL);
+	if ((NULL == k_eigenvectors) || (NULL == k_eigenvectors_mem)) {
+		status = Error;
+		goto end_jacobi_stage;
+	}
+
 	for (i = 0; i < k; ++i)
 		k_eigenvectors[i] = k_eigenvectors_mem + (i*dp_num);
 
-
+	/* copy the eigenvectors - according to the k smallest eigenvalues */
 	for (i = 0; i < k; ++i)
 		memcpy(
 			k_eigenvectors[i], /* dest */
@@ -1007,16 +1068,20 @@ int main(int argc, char const *argv[])
 			sizeof(F_TYPE)*dp_num /* size */
 		);
 
+
+	end_jacobi_stage:
 	free(eigenvectors); free(eigenvectors_mem);
 
 	if ((Success != status) || (4 == goal)) {
 
-		end_jacobi_stage:
 		if (Success != status)
 			PRINT_ERROR();
-		else { /* TODO: is this what i'm supposed to print? */
-			eigenvalues_only = calloc(sizeof(F_TYPE*), dp_num);
 
+		else { /* TODO: is this what i'm supposed to print? */
+			/* print k smallest eigenvalues */
+			/*------------------------------*/
+			/* allocate memory for eigenvalues */
+			eigenvalues_only = calloc(sizeof(F_TYPE*), dp_num);
 			if (NULL == eigenvalues) {
 				free(eigenvalues);
 				free(k_eigenvectors);
@@ -1027,6 +1092,7 @@ int main(int argc, char const *argv[])
 			for (i = 0; i < dp_num; ++i)
 				eigenvalues_only[i] = eigenvalues[i].f;
 
+			/* print eigenvalues and eigenvectors */
 			print_matrix(&eigenvalues_only, 1, dp_num);
 			print_matrix(k_eigenvectors, k, dp_num);
 
@@ -1044,33 +1110,55 @@ int main(int argc, char const *argv[])
 	/*=========================================*/
 	/* transpose eigenvectors matrix */
 	/*-------------------------------*/
+	/* allocate memory */
 	u_mtx_mem = calloc(sizeof(F_TYPE), k*dp_num);
-	assert(u_mtx_mem != NULL);
 	u_mtx = calloc(sizeof(F_TYPE*), dp_num);
-	assert(u_mtx != NULL);
+	if ((NULL == u_mtx) || (NULL == u_mtx_mem)) {
+		free(u_mtx); free(u_mtx_mem);
+		free(k_eigenvectors); free(k_eigenvectors_mem);
+		return Error;
+	}
+
 	for (i = 0; i < dp_num; ++i)
 		u_mtx[i] = u_mtx_mem + (i*k);
 
+	/* transpose */
 	transpose_matrix(k_eigenvectors, u_mtx, k, dp_num);
 
+	free(k_eigenvectors); free(k_eigenvectors_mem);
 
 	/* normalize u_matrix by rows */
 	/*----------------------------*/
+	/* allocate T matrix */
 	t_mtx_mem = calloc(sizeof(F_TYPE), k*dp_num);
-	assert(t_mtx_mem != NULL);
 	t_mtx = calloc(sizeof(F_TYPE*), dp_num);
-	assert(t_mtx != NULL);
+	if ((NULL == t_mtx) || (NULL == t_mtx_mem)) {
+		free(u_mtx); free(u_mtx_mem);
+		free(t_mtx); free(t_mtx_mem);
+		PRINT_ERROR();
+		return Error;
+	}
 	for (i = 0; i < dp_num; ++i)
 		t_mtx[i] = t_mtx_mem + (i*k);
 
-	dummy_vector = calloc(sizeof(F_TYPE*), k);
-	assert(dummy_vector != NULL);
+	/* allocate memory to simplify normalization */
+	zeroes_vector = calloc(sizeof(F_TYPE*), k);
+	if (NULL == zeroes_vector) {
+		free(u_mtx); free(u_mtx_mem);
+		free(t_mtx); free(t_mtx_mem);
+		PRINT_ERROR();
+		return Error;
+	}
 
+	/* calculate normalization with calc_l2_norm function */
 	for (i = 0; i < k; ++i)
 	{
 		for (j = 0; j < dp_num; ++j)
-			t_mtx[i][j] = u_mtx[i][j] / calc_l2_norm(u_mtx[i], dummy_vector, k);
+			t_mtx[i][j] = u_mtx[i][j] / calc_l2_norm(u_mtx[i], zeroes_vector, k);
 	}
+
+	free(u_mtx);
+	free(u_mtx_mem);
 	
 
 	/*==================*/
@@ -1080,15 +1168,23 @@ int main(int argc, char const *argv[])
 	d = k;
 	n = dp_num;
 	output_centroids_mem = calloc(sizeof(F_TYPE), k*d);
-	assert(output_centroids_mem != NULL);
 	output_centroids = calloc(sizeof(F_TYPE*), k);
-	assert(output_centroids != NULL);
+	if ((NULL == output_centroids) || (NULL == output_centroids_mem)) {
+		free(output_centroids); free(output_centroids_mem);
+		PRINT_ERROR();
+		return Error;
+	}
+
 	for (i = 0; i < k; ++i)
 		output_centroids[i] = output_centroids_mem + (i*d);
 
 	/* allocate memory for datapoint assignment to cluster */
 	output_cluster_assign = calloc(sizeof(int), n);
-	assert(output_cluster_assign != NULL);
+	if (NULL == output_cluster_assign) {
+		free(output_centroids); free(output_centroids_mem);
+		PRINT_ERROR();
+		return Error;
+	}
 
 	
 	/* THE KMEANS PROCEDURE CALL */
@@ -1096,15 +1192,17 @@ int main(int argc, char const *argv[])
 		t_mtx, n, d, 
 		output_centroids, output_cluster_assign,
 		k, max_iter);
-	/* TODO: handle kmeans status */
 
-	/* print or return the output centroids */
-	print_matrix(output_centroids, k, dim);
+	if (Success == status) 
+		print_matrix(output_centroids, k, dim);
+	else
+		PRINT_ERROR();
 
-	free(u_mtx); free(u_mtx_mem);
-	free(t_mtx); free(t_mtx_mem);
+	free(t_mtx);
+	free(t_mtx_mem);
 
-	free(output_centroids); free(output_centroids_mem);
+	free(output_centroids);
+	free(output_centroids_mem);
 
 	free(output_cluster_assign);
 
