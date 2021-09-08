@@ -55,6 +55,7 @@ enum goal {
 #define PRINT_ERROR() (printf("An Error Has Occured"))
 #define PRINT_INVALID_INPUT() (printf("Invalid Input!"))
 
+void print_matrix(F_TYPE** matrix, int n, int m);
 
 int goal_enum(const char* goal_str) {
 	if 		(0 == strcmp("spk", goal_str)) return SPK;
@@ -345,9 +346,6 @@ enum status calc_jacobi_iteration(
 		c = 1 / sqrt(pow(t, 2) + 1);
 		s = t*c;
 
-		/* Calculate the matrix rotation matrix mtx_P */
-		memset(o_mtx_P, 0, dp_num*dp_num*sizeof(F_TYPE));
-
 		for (k = 0; k < dp_num; k++)
 			o_mtx_P[k][k] = 1;
 
@@ -400,17 +398,32 @@ enum status find_eigenvalues_jacobi(
 	F_TYPE** o_mtx_V)
 {	
 	/* Declare locals */
-	F_TYPE** mtx_P = NULL, **mtx_V_temp = NULL;
+	F_TYPE** mtx_P = NULL; 
+	F_TYPE* mtx_P_mem = NULL;
+	F_TYPE** mtx_V_temp = NULL;
+	F_TYPE* mtx_V_temp_mem = NULL;
+
 	enum status status = Success;
-	int prev_off = 0, curr_off = 0;
+	int prev_off = 0, curr_off = 0, i = 0;
 
 	/* Allocate locals */
 	/* TODO: replace asserts with error returns */
-	mtx_P = (F_TYPE**)calloc(dp_num*dp_num, sizeof(F_TYPE));
+	mtx_P_mem = (F_TYPE*)calloc(dp_num*dp_num, sizeof(F_TYPE));
+	mtx_P = (F_TYPE**)calloc(dp_num, sizeof(F_TYPE*));
+	assert(mtx_P_mem != NULL);
 	assert(mtx_P != NULL);
-	mtx_V_temp = (F_TYPE**)calloc(dp_num*dp_num, sizeof(F_TYPE));
+
+	mtx_V_temp_mem = (F_TYPE*)calloc(dp_num*dp_num, sizeof(F_TYPE));
+	mtx_V_temp = (F_TYPE**)calloc(dp_num, sizeof(F_TYPE*));
+	assert(mtx_V_temp_mem != NULL);
 	assert(mtx_V_temp != NULL);
 
+	for (; i < dp_num; i++)
+	{
+		mtx_P[i] = mtx_P_mem + i*dp_num;
+		mtx_V_temp[i] = mtx_V_temp_mem + i*dp_num;
+	}
+	
 	/* Doing the first loop's step in order to save the first P in o_mtx_V */
 	prev_off = calc_off(io_mtx_A, dp_num);
 
@@ -434,8 +447,14 @@ enum status find_eigenvalues_jacobi(
 		curr_off = calc_off(io_mtx_A, dp_num);
 	}
 
+	print_matrix(o_mtx_V, dp_num, dp_num);
+	print_matrix(io_mtx_A, dp_num, dp_num);
+
 	/* free locals */
 	free(mtx_P);
+	free(mtx_P_mem);
+	free(mtx_V_temp);
+	free(mtx_V_temp_mem);
 
 	return Success;
 }

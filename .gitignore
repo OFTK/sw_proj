@@ -131,3 +131,6 @@ dmypy.json
 # Editor stuff
 .idea/
 .vscode/
+
+# Compiled file
+spkmeans
