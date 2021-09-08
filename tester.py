@@ -163,8 +163,11 @@ if __name__ == '__main__':
 	ddg = create_ddg(wam)
 	print("\nDDG")
 	print_matrix(ddg)
+	invsqrt = np.copy(ddg)
+	for i in range(len(ddg)):
+		invsqrt[i][i] = ddg[i][i]**(-.5)
 	print("\nDDG ^ -.5")
-	print_matrix(np.sqrt(ddg))
+	print_matrix(invsqrt)
 	print("")
 
 

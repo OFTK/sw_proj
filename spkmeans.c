@@ -230,9 +230,12 @@ enum status calc_normalized_graph_laplacian(
 
 	/* calc lnorm */
 	/*------------*/
+	/* 	because DDG and DDG^-0.5 are diagonal matrices, we can calculate 
+		we can avoid full matrix multipication, and just multiply each WAM
+		value with the right values in the DDG matrix */
 
 	for (i = 0; i < dp_num; ++i) {
-		for (j = 0; j < i; ++j) {
+		for (j = 0; j < dp_num; ++j) {
 
 			/* calc eye matrix */
 			if (i == j) eye = 1; else eye = 0;
@@ -861,13 +864,13 @@ int main(int argc, char const *argv[])
 
 	/* finish run if needed */
 	if ((Success != status) || (1 == goal)) {
-		free(wam); free(wam_mem);
 
 		if (Success != status)
 			PRINT_ERROR();
 		else
 			print_matrix(wam, dp_num, dp_num);
 
+		free(wam); free(wam_mem);
 		return status;
 	}
 
@@ -891,13 +894,13 @@ int main(int argc, char const *argv[])
 	/* finish run if needed */
 	if ((Success != status)  || (goal == 2)) {
 		free(wam); free(wam_mem);
-		free(ddg); free(ddg_mem);
 
 		if (Success != status)
 			PRINT_ERROR();
 		else
 			print_matrix(ddg, dp_num, dp_num);
 
+		free(ddg); free(ddg_mem);
 		return status;
 	}
 
@@ -920,15 +923,14 @@ int main(int argc, char const *argv[])
 	free(wam); free(wam_mem);
 	free(ddg); free(ddg_mem);
 
-
 	if ((Success != status) || (3 == goal)) {
-		free(lnorm); free(lnorm_mem);
 
 		if (Success != status)
 			PRINT_ERROR();
 		else 
 			print_matrix(lnorm, dp_num, dp_num);
 
+		free(lnorm); free(lnorm_mem);
 		return status;
 	}
 
@@ -1014,24 +1016,28 @@ int main(int argc, char const *argv[])
 			PRINT_ERROR();
 		else { /* TODO: is this what i'm supposed to print? */
 			eigenvalues_only = calloc(sizeof(F_TYPE*), dp_num);
+
 			if (NULL == eigenvalues) {
-				free(eigenvalues); free(k_eigenvectors); free(k_eigenvectors_mem);
+				free(eigenvalues);
+				free(k_eigenvectors);
+				free(k_eigenvectors_mem);
 				return Error;
 			}
+
 			for (i = 0; i < dp_num; ++i)
 				eigenvalues_only[i] = eigenvalues[i].f;
 
 			print_matrix(&eigenvalues_only, 1, dp_num);
 			print_matrix(k_eigenvectors, k, dp_num);
+
+			free(eigenvalues_only);
 		}
 
 		free(eigenvalues); free(k_eigenvectors); free(k_eigenvectors_mem);
-
 		return status;
 	}
 
 	free(eigenvalues);
-
 
 	/*=========================================*/
 	/* preparing matrix for kmeans (steps 4-5) */
