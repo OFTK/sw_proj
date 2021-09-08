@@ -167,8 +167,7 @@ void mul_square_matrices(
 /*===========*/
 
 enum status calc_weighted_adjacency_matrix(
-	int dim,
-	F_TYPE** input_dps, int dp_num,
+	F_TYPE** datapoints, int n, int m,
 	F_TYPE** wam)
 {
 	enum status s = Success;
@@ -176,18 +175,13 @@ enum status calc_weighted_adjacency_matrix(
 
 	/* calc weight */
 	/*-------------*/
-	for (i = 0; i < dp_num; ++i) {
-		for (j = 0; j < i; ++j) {
-			wam[i][j] = exp((-0.5) * calc_l2_norm(input_dps[i], input_dps[j], dim));
-			if (0 != errno) s = Error;
-		}
-	}
-
-	/* make matrix symmetric */
-	/*-----------------------*/
-	for (i = dp_num-1; i >= 0; --i) {
-		for (j = dp_num-1; j>=i; --j) {
-			wam[i][j] = wam[j][i];
+	for (i = 0; i < n; ++i) {
+		for (j = 0; j < n; ++j) {
+			if (i == j) wam[i][j] = 0;
+			else {
+				wam[i][j] = exp((-0.5) * calc_l2_norm(datapoints[i], datapoints[j], m));
+				if (0 != errno) s = Error;
+			}
 		}
 	}
 
@@ -725,8 +719,8 @@ int main(int argc, char const *argv[])
 	/* parsing arguments */
 	/*===================*/
 
-	if (3 != argc) {
-		DEBUG_PRINT("main: bad num of args, expecting 3\n");
+	if (4 != argc) {
+		DEBUG_PRINT("main: bad num of arguments, expecting 3\n");
 		PRINT_INVALID_INPUT();
 		return Error;
 	}
@@ -740,6 +734,7 @@ int main(int argc, char const *argv[])
 	}
 
 	/* TODO: should error here be invalid input or error? */
+	/* TODO: should we validate filename suffix? */
 	finput = fopen(argv[3], "r");
 	if (NULL == finput) {
 		DEBUG_PRINT("fopen returned with error");
@@ -859,7 +854,7 @@ int main(int argc, char const *argv[])
 		wam[i] = wam_mem + (i*dp_num);
 
 	/* calc Weighted Adjacency Matrix */
-	status = calc_weighted_adjacency_matrix(dim, input_dps, dp_num, wam);
+	status = calc_weighted_adjacency_matrix(input_dps, dp_num, dim, wam);
 
 	/* free no-longed needed memory */
 	free(input_dps); free(input_dp_mem);
