@@ -690,7 +690,6 @@ int main(int argc, char const *argv[])
 	int k = 0;
 	int max_iter = -1;  /* -1 symbolized no upper bound for max_iter. */
  	int goal = -1;
- 	char* file_suffix;
  	FILE* finput;
 
 
