@@ -60,7 +60,7 @@ def create_ddg(wam):
 	n = len(wam)
 	ddg = np.eye(n)
 	for i in range(n):
-		ddg[i][i] = (np.sum(wam[i])) ** (-.5)
+		ddg[i][i] = np.sum(wam[i])
 	return ddg
 
 def create_laplacian(wam):
@@ -69,13 +69,13 @@ def create_laplacian(wam):
 def print_matrix(matrix):
     for dp in matrix:
         for j in range(len(dp) - 1):
-            print('{:.3f},'.format(dp[j]), end='')
-        print('{:.3f}'.format(dp[-1]))
+            print('{:.4f},'.format(dp[j]), end='')
+        print('{:.4f}'.format(dp[-1]))
 
 def print_vector(vector):
     for i in range(len(vector)-1):
-        print('{:.3f},'.format(vector[i]), end='')
-    print('{:.3f}'.format(vector[len(vector)-1]))
+        print('{:.4f},'.format(vector[i]), end='')
+    print('{:.4f}'.format(vector[len(vector)-1]))
 
 def build_P_matrix(N, i, j, c, s):
     result = np.eye(N)
@@ -156,19 +156,26 @@ if __name__ == '__main__':
 	print("")
 
 	wam = create_wam(datapoints)
+	print("\nWAM")
 	print_matrix(wam)
 	print("")
 
 	ddg = create_ddg(wam)
+	print("\nDDG")
 	print_matrix(ddg)
+	print("\nDDG ^ -.5")
+	print_matrix(np.sqrt(ddg))
 	print("")
 
+
 	lnorm = create_laplacian(wam)
+	print("\nlnorm")
 	print_matrix(lnorm)
 	print("")
 
 	eigenvalues, eigenvectors = build_jacobi_matrix(lnorm)
+	print("\neigenvalues")
 	print_vector(eigenvalues)
-	print("")
+	print("\neigenvectors")
 	print_matrix(eigenvectors)
 	print("")
