@@ -767,16 +767,6 @@ int main(int argc, char const *argv[])
 	}
 
 
-	/* check input file suffix */
-	file_suffix = strrchr(argv[3],'.');
-	if ((NULL == file_suffix) ||
-		(strcmp(file_suffix,".csv") == 0))
-	{
-		DEBUG_PRINT("input file isn't .txt nor .csv");
-		PRINT_INVALID_INPUT();
-		return Error;
-	}
-
 	/* open input datapoints file */
 	finput = fopen(argv[3], "r");
 	if (NULL == finput) {
