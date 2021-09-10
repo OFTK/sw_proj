@@ -13,7 +13,11 @@
 #define F_TYPE_OUTPUT_FORMAT_SPEC ("%.4f")
 #define F_TYPE_MAX (DBL_MAX)
 #define F_TYPE_ABS(x) (fabs(x))
+
+/* Constants */
 #define JACOBI_CONVERGENCE_SIGMA (0.001)
+#define JACOBI_MAX_ITERATIONS (100)
+
 
 typedef struct f_and_idx {
 	F_TYPE f;
@@ -153,7 +157,7 @@ void mul_square_matrices(
 		for(j=0; j < n; j++) {
 
 			mul[i][j]=0;
-			for(; k < n; k++)    
+			for(k = 0; k < n; k++)    
 				mul[i][j] += a[i][k]*b[k][j];    
 
 		}   
@@ -306,20 +310,18 @@ enum status calc_jacobi_iteration(
 	F_TYPE** io_mtx_A, int dp_num,
 	F_TYPE** o_mtx_P)
 {	
-	/* TODO: Why were these declared size_t? */
-	/*size_t i = 0, j = 0, max = 0, k = 0, l = 0;*/
 	int k = 0;
 	int l = 0;
 	int i = 0;
 	int j = 0;
 	F_TYPE max = 0;
 
-	F_TYPE theta = 0, t = 0, c = 0, s = 0, temp = 0;
+	F_TYPE theta = 0, t = 0, c = 0, s = 0, temp1 = 0, temp2 = 0;
 
-	/* TODO : Find the largest off-diagonal, absolute value A_ij in io_mtx_A */
+	/* Finding the indices of the largest absolute value in A */
 	for (k = 1; k < dp_num; k++)
-	{
-		for (; l < k; l++)
+	{	
+		for (l = 0; l < k; l++)
 		{
 			if (F_TYPE_ABS(io_mtx_A[k][l]) > max)
 			{
@@ -329,17 +331,15 @@ enum status calc_jacobi_iteration(
 			}
 		}
 	}
-	
+
 	if (max != 0)
 	{
-		/* Calculate Theta, t, c */
 		theta = (io_mtx_A[j][j] - io_mtx_A[i][i]) / (2*io_mtx_A[i][j]);
 
-		if (theta > 0)
-			t = 1 / theta + sqrt(pow(theta, 2) + 1);
-
+		if (theta >= 0)
+			t = 1 / (F_TYPE_ABS(theta) + sqrt(pow(theta, 2) + 1));
 		else
-			t = -1 / -theta + sqrt(pow(theta, 2) + 1);
+			t = -1 / (F_TYPE_ABS(theta) + sqrt(pow(theta, 2) + 1));
 
 		c = 1 / sqrt(pow(t, 2) + 1);
 		s = t*c;
@@ -357,23 +357,27 @@ enum status calc_jacobi_iteration(
 		{
 			if (k != i && k != j)
 			{
-				io_mtx_A[k][i] = c*io_mtx_A[k][i] - s*io_mtx_A[k][j];
+				temp1 = io_mtx_A[k][i];
+
+				io_mtx_A[k][i] = c*temp1 - s*io_mtx_A[k][j];
 				io_mtx_A[i][k] = io_mtx_A[k][i];
 
-				io_mtx_A[k][j] = c*io_mtx_A[k][j] + s*io_mtx_A[k][i];
+				io_mtx_A[k][j] = c*io_mtx_A[k][j] + s*temp1;
 				io_mtx_A[j][k] = io_mtx_A[k][j];
 			}
 		}
 
-		temp = io_mtx_A[i][i] - io_mtx_A[j][j];
+		temp1 = io_mtx_A[i][i];
+		temp2 = io_mtx_A[j][j];
 
-		io_mtx_A[i][i] = pow(c,2)*io_mtx_A[i][i] + pow(s,2)*io_mtx_A[j][j]
+		io_mtx_A[i][i] = pow(c,2)*temp1 + pow(s,2)*temp2
 						- 2*s*c*io_mtx_A[i][j];
 
-		io_mtx_A[j][j] = pow(s,2)*io_mtx_A[i][i] + pow(c,2)*io_mtx_A[j][j]
+		io_mtx_A[j][j] = pow(s,2)*temp1 + pow(c,2)*temp2
 						+ 2*s*c*io_mtx_A[i][j];
 
-		io_mtx_A[i][j] = (pow(c,2) - pow(s,2))*io_mtx_A[i][j] + s*c*temp;
+		io_mtx_A[i][j] = (pow(c,2) - pow(s,2))*io_mtx_A[i][j] + s*c*(temp1 - temp2);
+		io_mtx_A[j][i] = io_mtx_A[i][j];
 
 		return Success;
 	}
@@ -432,11 +436,18 @@ enum status find_eigenvalues_jacobi(
 	curr_off = calc_off(io_mtx_A, dp_num);
 
 	/* Calc the diagonal A' matrix */
-	while (JACOBI_CONVERGENCE_SIGMA > curr_off - prev_off && status != Finish)
+	for (i = 0;
+		JACOBI_CONVERGENCE_SIGMA > curr_off - prev_off &&
+	 	status != Finish &&
+	  	i < JACOBI_MAX_ITERATIONS;
+		i++)
 	{
+		/* Reseting P */
+		memset(mtx_P_mem, 0, dp_num*dp_num*sizeof(F_TYPE));
+
 		/* Calculating the next A and P matrices */
 		status = calc_jacobi_iteration(io_mtx_A, dp_num, mtx_P);
-		
+
 		/* Calculating the next V matrix */
 		memcpy(mtx_V_temp_mem, o_mtx_V_mem, dp_num*dp_num*sizeof(F_TYPE));
 		mul_square_matrices(mtx_V_temp, mtx_P, dp_num, o_mtx_V);
@@ -445,9 +456,6 @@ enum status find_eigenvalues_jacobi(
 		prev_off = curr_off;
 		curr_off = calc_off(io_mtx_A, dp_num);
 	}
-
-	print_matrix(o_mtx_V, dp_num, dp_num);
-	print_matrix(io_mtx_A, dp_num, dp_num);
 
 	/* free locals */
 	free(mtx_P);
@@ -678,7 +686,7 @@ enum status spkmeans_preperations(
 		goto end_jacobi_stage;
 	}
 
-	status =  find_eigenvalues_jacobi(lnorm, dp_num, eigenvectors);
+	status =  find_eigenvalues_jacobi(lnorm, dp_num, eigenvectors, eigenvectors_mem);
 
 	/* allocate memory for eigenvalues */
 	eigenvalues = calloc(sizeof(f_and_idx), dp_num);
