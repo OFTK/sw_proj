@@ -1,12 +1,6 @@
 red='\033[0;31m'
 blue='\033[0;34m'
 
-rm tests/our_wam_output.csv
-rm tests/our_ddg_output.csv
-rm tests/our_lnorm_output.csv
-rm tests/our_jacobi_output.csv
-rm tests/our_spk_c_output.csv
-
 echo "${blue}\nWAM TEST RESULTS:"
 ./spkmeans 0 wam tests/input.csv > tests/our_wam_output.csv
 echo "${red}"
