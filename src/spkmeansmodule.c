@@ -2,13 +2,16 @@
 #include <Python.h>
 #include "spkmeans.h"
 
+#define DEBUG
+
 const static int MAX_ITER = 300;
 
-static PyObject* spkmeans_fit(PyObject* self, PyObject* args)
+static PyObject* fit(PyObject* self, PyObject* args)
 {
-    int number_of_datapoints;
+    int number_of_datapoints = 0;
 
-    int dim, k;
+    int dim = 0, k = 0;
+    int i = 0, j = 0;
 
     PyObject* centroids_list_obj = NULL;
     PyObject* points_list_obj = NULL;
@@ -54,16 +57,16 @@ static PyObject* spkmeans_fit(PyObject* self, PyObject* args)
 #endif
 
     // Parsing initialized centroids...
-    for (int i = 0; i <K; i++)
+    for (i = 0; i < k; i++)
     {
         centroids_arr_ptr[i] = centroids_arr_mem + (i * dim);
 
-        for (int j = 0; j < dim; j++)
+        for (j = 0; j < dim; j++)
         {
             float_obj = PyList_GetItem(centroids_list_obj, i*dim+j);
             centroids_arr_mem[(i*dim) + j] = PyFloat_AsDouble(float_obj);
 #ifdef DEBUG
-            printf("centroid: %Lf\n", centroids_arr_mem[(i*dim) + j]);
+            printf("centroid: %f\n", centroids_arr_mem[(i*dim) + j]);
 #endif
         }
     }
@@ -73,40 +76,24 @@ static PyObject* spkmeans_fit(PyObject* self, PyObject* args)
 #endif
 
     // Parsing datapoints...
-    for (int i = 0; i <number_of_datapoints; i++)
+    for (i = 0; i <number_of_datapoints; i++)
     {
         datapoints_arr_ptr[i] = datapoints_arr_mem + (i * dim);
 
-        for (int j = 0; j < dim; j++)
+        for (j = 0; j < dim; j++)
         {
             float_obj = PyList_GetItem(points_list_obj, i*dim+j);
             datapoints_arr_mem[(i*dim) + j] = PyFloat_AsDouble(float_obj);
 #ifdef DEBUG
-            printf("dp: %Lf\n", datapoints_arr_mem[(i*dim) + j]);
+            printf("dp: %f\n", datapoints_arr_mem[(i*dim) + j]);
 #endif
         }
     }
 
-    // TODO: Perform steps 1-7 ...
-
     if (kmeans(dim, k, MAX_ITER, number_of_datapoints, datapoints_arr_ptr, centroids_arr_ptr) != 0)
-        return NULL;
+        PRINT_ERROR();
 
-    PyObject* centroids = PyList_New(k * dim);
-
-    if (!centroids)
-        return NULL;
-
-    for (int i = 0; i < K * dim; i++) {
-        PyObject *num = PyFloat_FromDouble(centroids_arr_mem[i]);
-
-        if (!num) {
-            Py_DECREF(centroids);
-            return NULL;
-        }
-
-        PyList_SET_ITEM(centroids, i, num);
-    }
+    // TODO: Print the results
 
 #ifdef DEBUG
     printf("Finished! :D\n");
@@ -117,20 +104,28 @@ static PyObject* spkmeans_fit(PyObject* self, PyObject* args)
     free(datapoints_arr_ptr);
     free(datapoints_arr_mem);
 
-    return centroids;
+    return NULL;
 }
 
 static PyObject* perform_subtask(PyObject* self, PyObject* args)
 {
-    int number_of_datapoints;
+    int number_of_datapoints = 0;
 
-    int dim, k, goal;
+    int dim = 0, k = 0, goal = 0;
+    int i = 0, j = 0;
 
     PyObject* points_list_obj = NULL;
     PyObject* float_obj = NULL;
+    PyObject* return_value = NULL;
+    PyObject* num = NULL;
 
     F_TYPE** datapoints_arr_ptr = NULL;
     F_TYPE* datapoints_arr_mem = NULL;
+    
+    F_TYPE** o_mtx = NULL;
+    F_TYPE* o_mtx_mem = NULL;
+
+    F_TYPE* eigenvalues = NULL;
 
 #ifdef DEBUG
     printf("Got to here!\n");
@@ -144,6 +139,7 @@ static PyObject* perform_subtask(PyObject* self, PyObject* args)
 
     printf("d:%d\n", dim);
     printf("k:%d\n", k);
+    printf("goal:%d", goal);
 #endif
 
     number_of_datapoints = PyList_Size(points_list_obj) / dim;
@@ -163,11 +159,11 @@ static PyObject* perform_subtask(PyObject* self, PyObject* args)
 #endif
 
     // Parsing datapoints...
-    for (int i = 0; i <number_of_datapoints; i++)
+    for (i = 0; i <number_of_datapoints; i++)
     {
         datapoints_arr_ptr[i] = datapoints_arr_mem + (i * dim);
 
-        for (int j = 0; j < dim; j++)
+        for (j = 0; j < dim; j++)
         {
             float_obj = PyList_GetItem(points_list_obj, i*dim+j);
             datapoints_arr_mem[(i*dim) + j] = PyFloat_AsDouble(float_obj);
@@ -177,36 +173,62 @@ static PyObject* perform_subtask(PyObject* self, PyObject* args)
         }
     }
 
-    PyObject* return_value; // TODO: If the values getting trashed after leaving the cases' scope, allocate according to goal above
+    /* Allocate memory */
+	o_mtx = calloc(n, sizeof(F_TYPE*));
+	o_mtx_mem = calloc(n*m, sizeof(F_TYPE));
+	if ((NULL == o_mtx) || (NULL == o_mtx_mem)) {
+		free(o_mtx); free(o_mtx_mem);
+		PRINT_ERROR();
+		return Error;
+	}
 
-    // Performing the requested task
-    switch (goal)
+	for (i = 0; i < n; ++i)
+		o_mtx[i] = o_mtx_mem + (i*m);
+
+	/* Allocate memory for eigenvalues */
+	eigenvalues = calloc(dp_num, sizeof(F_TYPE));
+
+	/* Performing subtask */
+	status = spkmeans_preperations(
+		datapoints_arr_ptr, number_of_datapoints, dim, k, goal,
+		o_mtx_mem, eigenvalues);
+
+	if (Error == status) {
+		free(o_mtx); free(o_mtx_mem); free(eigenvalues);
+		PRINT_ERROR();
+		return status;
+	}
+
+	/* Print output matrix (and if needed - eigenvalues) */
+	if (SPK != goal) {
+		if (JACOBI == goal) print_matrix(&eigenvalues, 1, n);
+		print_matrix(o_mtx, n, m);
+	}
+    else /* Returning the received value to the python module */
     {
-        case(2):
-        {
-            break;
-        }
-        case(3):
-        {
-            break;
-        }
-        case(4):
-        {
-            break;
-        }
-        case(5):
-        {
-            break;
-        }
-        default:
-        {
+        return_value = PyList_New(k * number_of_datapoints);
 
-            break;
+    if (!return_value)
+        return NULL;
+
+        for (i = 0; i < k * number_of_datapoints; i++) {
+            num = PyFloat_FromDouble(o_mtx_mem[i]);
+
+            if (!num) {
+                Py_DECREF(return_value);
+                return NULL;
+            }
+
+            PyList_SET_ITEM(return_value, i, num);
         }
     }
 
     free(datapoints_arr_ptr);
     free(datapoints_arr_mem);
+
+    free(o_mtx); 
+    free(o_mtx_mem); 
+    free(eigenvalues);
 
     return return_value;
 }

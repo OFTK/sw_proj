@@ -5,10 +5,10 @@
 #include <string.h>
 #include <assert.h>
 #include <float.h>
+#include "spkmeans.h"
 
 #define TRUE (1)
 #define FALSE (0)
-#define F_TYPE double
 #define F_TYPE_FORMAT_SPEC ("%lf")
 #define F_TYPE_OUTPUT_FORMAT_SPEC ("%.4f")
 #define F_TYPE_MAX (DBL_MAX)
@@ -26,23 +26,6 @@ typedef struct f_and_idx {
 	int idx;
 } f_and_idx;
 
-enum status {
-	Error=(-1),
-	Success=0,
-	Finish=1
-};
-
-
-enum goal {
-	BAD=(-1),
-	SPK=0,
-	WAM=1,
-	DDG=2,
-	LNORM=3,
-	JACOBI=4
-};
-
-
 /*=======*/
 /* debug */
 /*=======*/
@@ -58,10 +41,6 @@ enum goal {
 /*======*/
 /* misc */
 /*======*/
-#define PRINT_ERROR() (printf("An Error Has Occured"))
-#define PRINT_INVALID_INPUT() (printf("Invalid Input!"))
-
-void print_matrix(F_TYPE** matrix, int n, int m);
 
 int goal_enum(const char* goal_str) {
 	if 		(0 == strcmp("spk", goal_str)) return SPK;
@@ -333,6 +312,9 @@ enum status calc_jacobi_iteration(
 			}
 		}
 	}
+#ifdef DEBUG_JACOBI
+	printf("Found max, A[%d][%d] = %f\n",i,j,max);
+#endif
 
 	if (max != 0)
 	{
@@ -345,6 +327,9 @@ enum status calc_jacobi_iteration(
 
 		c = 1 / sqrt(pow(t, 2) + 1);
 		s = t*c;
+#ifdef DEBUG_JACOBI
+		printf("Theta: %f\n t: %f\n c: %f\n s: %f\n",theta, t, c, s);
+#endif		
 
 		for (k = 0; k < dp_num; k++)
 			o_mtx_P[k][k] = 1;
@@ -449,16 +434,38 @@ enum status find_eigenvalues_jacobi(
 
 		/* Calculating the next A and P matrices */
 		status = calc_jacobi_iteration(io_mtx_A, dp_num, mtx_P);
-
+#ifdef DEBUG_JACOBI
+		printf("A':\n");
+		print_matrix(io_mtx_A, dp_num, dp_num);
+		printf("mtx_P:\n");
+		print_matrix(mtx_P, dp_num, dp_num);
+#endif
 		/* Calculating the next V matrix */
 		memcpy(mtx_V_temp_mem, o_mtx_V_mem, dp_num*dp_num*sizeof(F_TYPE));
 		mul_square_matrices(mtx_V_temp, mtx_P, dp_num, o_mtx_V);
+#ifdef DEBUG_JACOBI
+		printf("Vectors:\n");
+		print_matrix(o_mtx_V, dp_num, dp_num);
+#endif
 
 		/* Calculating the function 'off^2' of the new matrix */
 		prev_off = curr_off;
 		curr_off = calc_off(io_mtx_A, dp_num);
 	}
-	
+
+#ifdef DEBUG_JACOBI
+	printf("Vectors:\n");
+	print_matrix(o_mtx_V, dp_num, dp_num);
+	printf("\nValues:\n");
+	for(i = 0; i < dp_num - 1; i++)
+	{
+		printf(F_TYPE_OUTPUT_FORMAT_SPEC, io_mtx_A[i][i]);
+		printf(", ");
+	}
+	printf(F_TYPE_OUTPUT_FORMAT_SPEC, io_mtx_A[i][i]);
+
+	printf("\n");
+#endif	
 
 	/* free locals */
 	free(mtx_P);
@@ -825,7 +832,6 @@ enum status spkmeans_preperations(
 	return status;
 
 }
-
 
 
 /* kmeans algorithm, from hw 1 */
