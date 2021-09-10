@@ -457,6 +457,9 @@ enum status find_eigenvalues_jacobi(
 		curr_off = calc_off(io_mtx_A, dp_num);
 	}
 
+	print_matrix(o_mtx_V, dp_num, dp_num);
+	print_matrix(io_mtx_A, dp_num, dp_num);
+
 	/* free locals */
 	free(mtx_P);
 	free(mtx_P_mem);
