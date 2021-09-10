@@ -238,7 +238,7 @@ enum status calc_normalized_graph_laplacian(
 
 	/* inverse square root of matrix main diagonal */
 	for (i = 0; i < dp_num; ++i)
-		ddg_invsqrt[i][i] = INV_SQRT(ddg[i][i]);
+		ddg_invsqrt[i][i] = pow(ddg[i][i], (-0.5));
 
 	if (0 != errno) status = Error;
 
@@ -429,9 +429,9 @@ enum status find_eigenvalues_jacobi(
 
 	mtx_V_temp_mem = (F_TYPE*)calloc(dp_num*dp_num, sizeof(F_TYPE));
 	mtx_V_temp = (F_TYPE**)calloc(dp_num, sizeof(F_TYPE*));
-	if ((NULL == mtx_V_mem) || (NULL == mtx_V)) {
+	if ((NULL == mtx_V_temp_mem) || (NULL == mtx_V_temp)) {
 		free(mtx_P); free(mtx_P_mem);
-		free(mtx_V); free(mtx_V_mem);
+		free(mtx_V_temp); free(mtx_V_temp_mem);
 		return Error;
 	}
 
@@ -1357,8 +1357,9 @@ int main(int argc, char const *argv[])
 		output_centroids, output_cluster_assign,
 		k, max_iter);
 
-	if (Success == status) 
+	if (Success == status) {
 		print_matrix(output_centroids, k, m);
+	}
 	else
 		PRINT_ERROR();
 
