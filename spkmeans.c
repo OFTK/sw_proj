@@ -319,9 +319,9 @@ enum status calc_jacobi_iteration(
 	F_TYPE theta = 0, t = 0, c = 0, s = 0, temp1 = 0, temp2 = 0;
 
 	/* Finding the indices of the largest absolute value in A */
-	for (k = 1; k < dp_num; k++)
+	for (k = 0; k < dp_num; k++)
 	{	
-		for (l = 0; l < k; l++)
+		for (l = k+1; l < dp_num; l++)
 		{
 			if (F_TYPE_ABS(io_mtx_A[k][l]) > max)
 			{
@@ -456,9 +456,17 @@ enum status find_eigenvalues_jacobi(
 		prev_off = curr_off;
 		curr_off = calc_off(io_mtx_A, dp_num);
 	}
-
+	
+	printf("Vectors:\n");
 	print_matrix(o_mtx_V, dp_num, dp_num);
-	print_matrix(io_mtx_A, dp_num, dp_num);
+	printf("\nValues:\n");
+	for(i = 0; i < dp_num; i++)
+	{
+		printf(F_TYPE_OUTPUT_FORMAT_SPEC, io_mtx_A[i][i]);
+		printf(", ");
+	}
+
+	printf("\n");
 
 	/* free locals */
 	free(mtx_P);
@@ -689,6 +697,9 @@ enum status spkmeans_preperations(
 		goto end_jacobi_stage;
 	}
 
+	printf("LNORM:\n");
+	print_matrix(lnorm, dp_num, dp_num);
+	printf("\n\n\n");
 	status =  find_eigenvalues_jacobi(lnorm, dp_num, eigenvectors, eigenvectors_mem);
 
 	/* allocate memory for eigenvalues */
