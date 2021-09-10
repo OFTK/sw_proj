@@ -690,6 +690,7 @@ enum status spkmeans_preperations(
 		goto end_jacobi_stage;
 	}
 
+	/* TODO: find out why last eigenvalue is negative */
 	status =  find_eigenvalues_jacobi(lnorm, dp_num, eigenvectors, eigenvectors_mem);
 
 	/* allocate memory for eigenvalues */
@@ -768,7 +769,7 @@ enum status spkmeans_preperations(
 	/*--------------------------*/
 	/* allocate memory for k eigenvectors */
 	u_mtx_mem = calloc(sizeof(F_TYPE), (*k)*dp_num);
-	u_mtx = calloc(sizeof(F_TYPE*), (*k));
+	u_mtx = calloc(sizeof(F_TYPE*), dp_num);
 	if ((NULL == u_mtx) || (NULL == u_mtx_mem)) {
 		status = Error;
 		goto end_jacobi_stage;
@@ -780,7 +781,7 @@ enum status spkmeans_preperations(
 	/* copy the eigenvector columns - according to the k smallest eigenvalues */
 	for (i = 0; i < (*k); ++i)
 	{
-		for (j = 0; j < dp_num; ++i)
+		for (j = 0; j < dp_num; ++j)
 			u_mtx[j][i] = eigenvectors[j][eigenvalues[i].idx];
 	}
 
@@ -803,7 +804,7 @@ enum status spkmeans_preperations(
 		t_mtx[i] = t_mtx_mem + (i*(*k));
 
 	/* allocate memory to simplify normalization */
-	zeroes_vector = calloc(sizeof(F_TYPE*), (*k));
+	zeroes_vector = calloc(sizeof(F_TYPE), (*k));
 	if (NULL == zeroes_vector) {
 		free(u_mtx); free(u_mtx_mem);
 		free(t_mtx); free(t_mtx_mem);
@@ -811,9 +812,9 @@ enum status spkmeans_preperations(
 	}
 
 	/* calculate normalization with calc_l2_norm function */
-	for (i = 0; i < (*k); ++i)
+	for (i = 0; i < dp_num; ++i)
 	{
-		for (j = 0; j < dp_num; ++j)
+		for (j = 0; j < (*k); ++j)
 			t_mtx[i][j] = u_mtx[i][j] / calc_l2_norm(u_mtx[i], zeroes_vector, (*k));
 	}
 
@@ -1045,7 +1046,6 @@ int main(int argc, char const *argv[])
 	F_TYPE* output_centroids_mem = NULL;
 
 	/* memory for output cluster assignments */
-	int d = 0;
 	int n = 0;
 	int m = 0;
 	int* output_cluster_assign = NULL;
@@ -1233,12 +1233,10 @@ int main(int argc, char const *argv[])
 		return status;
 	}
 
-	if (JACOBI == goal) {
-		n = dp_num; 
-		m = dp_num;
-	} else if (SPK == goal) {
-		n = dp_num; 
+	if (SPK == goal) {
 		m = k;
+		for (i = 0; i < n; ++i)
+			o_mtx[i] = o_mtx_mem + (i*k);
 	}
 
 
@@ -1255,15 +1253,16 @@ int main(int argc, char const *argv[])
 	#ifdef DEBUG
 	print_matrix(o_mtx, n, m);
 	#endif
+	DEBUG_PRINT("\n");
 
 
 	/*==================*/
 	/* kmeans algorithm */
 	/*==================*/
 	/* allocate memory for output centroids */
-	d = k;
+	m = k;
 	n = dp_num;
-	output_centroids_mem = calloc(sizeof(F_TYPE), k*d);
+	output_centroids_mem = calloc(sizeof(F_TYPE), k*m);
 	output_centroids = calloc(sizeof(F_TYPE*), k);
 	if ((NULL == output_centroids) || (NULL == output_centroids_mem)) {
 		free(output_centroids); free(output_centroids_mem);
@@ -1272,7 +1271,7 @@ int main(int argc, char const *argv[])
 	}
 
 	for (i = 0; i < k; ++i)
-		output_centroids[i] = output_centroids_mem + (i*d);
+		output_centroids[i] = output_centroids_mem + (i*m);
 
 	/* allocate memory for datapoint assignment to cluster */
 	output_cluster_assign = calloc(sizeof(int), n);
@@ -1285,12 +1284,12 @@ int main(int argc, char const *argv[])
 	
 	/* THE KMEANS PROCEDURE CALL */
 	status = kmeans(
-		o_mtx, n, d, 
+		o_mtx, n, m, 
 		output_centroids, output_cluster_assign,
 		k, max_iter);
 
 	if (Success == status) 
-		print_matrix(output_centroids, k, dim);
+		print_matrix(output_centroids, k, m);
 	else
 		PRINT_ERROR();
 
