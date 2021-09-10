@@ -149,6 +149,71 @@ def build_jacobi_matrix(lmatrix):
 
 
 
+def calc_vec_dist(point_a, point_b, dim):
+    sum = 0
+    for i in range(dim):
+        sum += (point_a[i] - point_b[i])**2
+    return sum
+
+def add_dp_to_cluster(centroids, datapoint):
+    min = {'value': sys.maxsize, 'centroid': 0}
+    
+    for centroid in centroids:
+        cent_dist = calc_vec_dist(datapoint, centroid['value'], len(datapoint))
+        if cent_dist < min['value']:
+            min['centroid'] = centroid
+            min['value'] = cent_dist
+    
+    min['centroid']['dp_array'].append(datapoint)
+
+def calc_centroids_and_reset(centroids):
+    dim = len(centroids[0]['value'])
+
+    for centroid in centroids:
+        sum_array = []
+        for i in range(dim):
+            sum_array.append(0)
+
+        for dp in centroid['dp_array']:
+            for i in range(dim):
+                sum_array[i] += dp[i]
+        
+        for i in range(dim):
+            centroid['value'][i] = sum_array[i] / len(centroid['dp_array'])
+
+        centroid['dp_array'] = []
+
+
+
+
+def kmeans(datapoints, max_iterations, k):
+
+    # prepare centroids according to the C implementation
+    centroids = []
+    for i in range(len(datapoints)):
+        if i <= K:
+            centroids.append({'value': datapoints[i].copy(), 'dp_array': [datapoints[i]]})
+        else:
+            add_dp_to_cluster(centroids, new_point)
+
+    prev_centroids = centroids
+    for i in range(max_iterations):
+        for dp in datapoints:
+            add_dp_to_cluster(centroids, dp)
+
+        calc_centroids_and_reset(centroids)
+
+        n_equal = False
+        for new_cent, prev_cent in zip(centroids, prev_centroids):
+            if n_equal:
+                return
+            for n_val, p_val in zip(new_cent, prev_cent):
+                if n_val != p_val:
+                    n_equal = True
+
+
+
+
 if __name__ == '__main__':
 	datapoints = read_inputs("input.csv") 
 	# TODO: generate inputs

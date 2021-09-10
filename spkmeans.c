@@ -18,6 +18,8 @@
 #define JACOBI_CONVERGENCE_SIGMA (0.001)
 #define JACOBI_MAX_ITERATIONS (100)
 
+/* TODO: make lines shorter than 80 characters */
+/* TODO: on jacobi - run only jacobi on input */
 
 typedef struct f_and_idx {
 	F_TYPE f;
@@ -133,14 +135,14 @@ int cmp_matrices(F_TYPE** a, F_TYPE** b, int dim, int vec_num)
 }
 
 
-/* 	Transoposes a matrix. T( mtx(nXm) ) => o_t_mtx(mXn) */
-void transpose_matrix(F_TYPE** mtx, F_TYPE**o_t_mtx, int n, int m)
+/* 	Transoposes a matrix. T( i_mtx (nXm) ) => o_t_mtx (mXn) */
+void transpose_matrix(F_TYPE** i_mtx, F_TYPE**o_t_mtx, int n, int m)
 {
 	int i = 0;
 	int j = 0;
 	for (i = 0; i < n; ++i) {
 		for (j = 0; j < m; ++j)
-			o_t_mtx[j][i] = mtx[i][j];
+			o_t_mtx[j][i] = i_mtx[i][j];
 	}
 }
 
@@ -457,16 +459,6 @@ enum status find_eigenvalues_jacobi(
 		curr_off = calc_off(io_mtx_A, dp_num);
 	}
 	
-	printf("Vectors:\n");
-	print_matrix(o_mtx_V, dp_num, dp_num);
-	printf("\nValues:\n");
-	for(i = 0; i < dp_num; i++)
-	{
-		printf(F_TYPE_OUTPUT_FORMAT_SPEC, io_mtx_A[i][i]);
-		printf(", ");
-	}
-
-	printf("\n");
 
 	/* free locals */
 	free(mtx_P);
@@ -517,13 +509,13 @@ enum status eigengap_heuristic(
 		eigengaps[i] = F_TYPE_ABS(eigenvalues[i+1].f - eigenvalues[i].f);
 
 	/* find argmax */
-	o_k = 0;
+	*o_k = 0;
 	for (i = 0; i < (n/2); ++i) /* TODO: find out if n/2 or n instead */
 	{
 		if (eigengaps[i] > max_gap)
 		{
 			max_gap = eigengaps[i];
-			*o_k = i;
+			*o_k = (i+1);
 		}
 	}
 
@@ -538,13 +530,15 @@ enum status eigengap_heuristic(
 				WAM =>    dp_num X dp_num weighed adjacency matrix
 				DDG =>    dp_num X dp_num Diagonal Degree Matrix
 				LNORM =>  dp_num X dp_num lnorm Matrix
-				JACOBI => k X dp_num eigenvectors matrix
-				SPK =>    dp_num X k T matrix (new datapoints for kmeans algorithm)
+				JACOBI => dp_num long eigenvalues vector
+						  dp_num X dp_num eigenvectors matrix
+				SPK =>    dp_num X k T matrix 
+						  (new datapoints for kmeans algorithm)
 	o_eigenvalues - if goal = JACOBI, holds a vector of dp_num eigenvalues */
 
 enum status spkmeans_preperations(
 	F_TYPE** input_dps, int dp_num, int dim,
-	int k, enum goal goal, 
+	int* k, enum goal goal, 
 	F_TYPE* o_mtx_mem, F_TYPE* o_eigenvalues)
 {
 
@@ -568,14 +562,13 @@ enum status spkmeans_preperations(
 	/* memory for normalized graph Laplacian */
 	F_TYPE** eigenvectors = NULL;
 	F_TYPE* eigenvectors_mem = NULL;
+	F_TYPE** eigenvectors_transposed = NULL;
 	f_and_idx* eigenvalues = NULL;
 
-	F_TYPE** k_eigenvectors = NULL;
-	F_TYPE* k_eigenvectors_mem = NULL;
-
-	/* memory for returned centroids */
 	F_TYPE** u_mtx = NULL;
 	F_TYPE* u_mtx_mem = NULL;
+
+	/* memory for returned centroids */
 	F_TYPE** t_mtx = NULL;
 	F_TYPE* t_mtx_mem = NULL;
 	F_TYPE* zeroes_vector = NULL;
@@ -605,7 +598,7 @@ enum status spkmeans_preperations(
 
 		end_wam_stage:
 
-		if (WAM == goal)
+		if (Success == status)
 			memcpy(o_mtx_mem, wam_mem, dp_num*dp_num*sizeof(F_TYPE));
 
 		free(wam); free(wam_mem);
@@ -637,7 +630,7 @@ enum status spkmeans_preperations(
 		end_ddg_stage:
 		free(wam); free(wam_mem);
 
-		if (DDG == goal)
+		if (Success == status)
 			memcpy(o_mtx_mem, ddg_mem, dp_num*dp_num*sizeof(F_TYPE));
 
 		free(ddg); free(ddg_mem);
@@ -669,7 +662,7 @@ enum status spkmeans_preperations(
 
 	if ((Success != status) || (LNORM == goal)) {
 
-		if (LNORM == goal)
+		if (Success == status)
 			memcpy(o_mtx_mem, lnorm_mem, dp_num*dp_num*sizeof(F_TYPE)); 
 
 		free(lnorm); free(lnorm_mem);
@@ -697,9 +690,6 @@ enum status spkmeans_preperations(
 		goto end_jacobi_stage;
 	}
 
-	printf("LNORM:\n");
-	print_matrix(lnorm, dp_num, dp_num);
-	printf("\n\n\n");
 	status =  find_eigenvalues_jacobi(lnorm, dp_num, eigenvectors, eigenvectors_mem);
 
 	/* allocate memory for eigenvalues */
@@ -717,83 +707,92 @@ enum status spkmeans_preperations(
 	}
 
 
-	/* sort eigenvalues, with respect to original indices */
-	/*----------------------------------------------------*/
-	qsort(eigenvalues, sizeof(f_and_idx), dp_num, &f_and_idx_compare);
-
-	/* run eigengap heuristic - if needed */
-	/* TODO: make sure eigenvalues are greater than 0 */
-	if (0 == k)
-		status = eigengap_heuristic(eigenvalues, dp_num, &k);
-
-	/* save only k eigenvectors */
-	/*--------------------------*/
-	/* allocate memory for eigenvectors matrix */
-	k_eigenvectors_mem = calloc(sizeof(F_TYPE), k*dp_num);
-	k_eigenvectors = calloc(sizeof(F_TYPE*), k);
-	if ((NULL == k_eigenvectors) || (NULL == k_eigenvectors_mem)) {
-		status = Error;
-		goto end_jacobi_stage;
-	}
-
-	for (i = 0; i < k; ++i)
-		k_eigenvectors[i] = k_eigenvectors_mem + (i*dp_num);
-
-	/* copy the eigenvectors - according to the k smallest eigenvalues */
-	for (i = 0; i < k; ++i)
-		memcpy(
-			k_eigenvectors[i], /* dest */
-			eigenvectors[eigenvalues[i].idx], /* source - eigenvector from corresponding idx */
-			sizeof(F_TYPE)*dp_num /* size */
-		);
 
 
 	end_jacobi_stage:
-	free(eigenvectors); free(eigenvectors_mem);
 
 	if ((Success != status) || (JACOBI == goal)) {
 
-		if (JACOBI == goal) {
+		if (Success == status) {
 			/* copy all eigenvalues and k eigenvectors to output */
-			/* TODO: should I print ALL eigenvectors? Or only k eigenvalues? */
+			/*---------------------------------------------------*/
 			for (i = 0; i < dp_num; ++i)
 				o_eigenvalues[i] = eigenvalues[i].f;
 
-			memcpy(o_mtx_mem, k_eigenvectors_mem, k*dp_num*sizeof(F_TYPE));
+			/* transpose eigenvectors matrix - to display eigenvectors as rows */
+			/*-----------------------------------------------------------------*/
+			/* allocate memory */
+			eigenvectors_transposed = calloc(sizeof(F_TYPE*), dp_num);
+			if (NULL == eigenvectors_transposed) {
+				status = Error;
+				goto end_jacobi_stage;
+			}
+
+			for (i = 0; i < dp_num; ++i)
+				eigenvectors_transposed[i] = o_mtx_mem + (i*dp_num);
+
+			if (Success != status) {
+				free(lnorm); free(lnorm_mem);
+				goto end_jacobi_stage; /* this time - don't enter the if
+										  so only free memory and return */
+			}
+
+			/* transpose eigenvector matrix - to o_mtx_mem */
+			transpose_matrix(eigenvectors, eigenvectors_transposed, dp_num, dp_num);
 		}
 
-		free(eigenvalues); free(k_eigenvectors); free(k_eigenvectors_mem);
+		free(eigenvalues);
+		free(eigenvectors); free(eigenvectors_mem);
+		free(eigenvectors_transposed);
+
 		return status;
 	}
 
-	free(eigenvalues);
 
 	/*=========================================*/
 	/* preparing matrix for kmeans (steps 4-5) */
 	/*=========================================*/
-	/* transpose eigenvectors matrix */
-	/*-------------------------------*/
-	/* allocate memory */
-	u_mtx_mem = calloc(sizeof(F_TYPE), k*dp_num);
-	u_mtx = calloc(sizeof(F_TYPE*), dp_num);
+
+	/* sort eigenvalues, with respect to original indices */
+	/*----------------------------------------------------*/
+	qsort(eigenvalues, dp_num, sizeof(f_and_idx), &f_and_idx_compare);
+
+
+	/* run eigengap heuristic - if needed */
+	/* TODO: make sure eigenvalues are greater than 0 */
+	if (0 == (*k))
+		status = eigengap_heuristic(eigenvalues, dp_num, k);
+
+
+	/* save only k eigenvectors */
+	/*--------------------------*/
+	/* allocate memory for k eigenvectors */
+	u_mtx_mem = calloc(sizeof(F_TYPE), (*k)*dp_num);
+	u_mtx = calloc(sizeof(F_TYPE*), (*k));
 	if ((NULL == u_mtx) || (NULL == u_mtx_mem)) {
-		free(u_mtx); free(u_mtx_mem);
-		free(k_eigenvectors); free(k_eigenvectors_mem);
-		return Error;
+		status = Error;
+		goto end_jacobi_stage;
 	}
 
-	for (i = 0; i < dp_num; ++i)
-		u_mtx[i] = u_mtx_mem + (i*k);
+	for (i = 0; i < (dp_num); ++i)
+		u_mtx[i] = u_mtx_mem + (i*(*k));
 
-	/* transpose */
-	transpose_matrix(k_eigenvectors, u_mtx, k, dp_num);
+	/* copy the eigenvector columns - according to the k smallest eigenvalues */
+	for (i = 0; i < (*k); ++i)
+	{
+		for (j = 0; j < dp_num; ++i)
+			u_mtx[j][i] = eigenvectors[j][eigenvalues[i].idx];
+	}
 
-	free(k_eigenvectors); free(k_eigenvectors_mem);
+
+	free(eigenvalues);
+	free(eigenvectors); free(eigenvectors_mem);
+
 
 	/* normalize u_matrix by rows */
 	/*----------------------------*/
 	/* allocate T matrix */
-	t_mtx_mem = calloc(sizeof(F_TYPE), k*dp_num);
+	t_mtx_mem = calloc(sizeof(F_TYPE), (*k)*dp_num);
 	t_mtx = calloc(sizeof(F_TYPE*), dp_num);
 	if ((NULL == t_mtx) || (NULL == t_mtx_mem)) {
 		free(u_mtx); free(u_mtx_mem);
@@ -801,10 +800,10 @@ enum status spkmeans_preperations(
 		return Error;
 	}
 	for (i = 0; i < dp_num; ++i)
-		t_mtx[i] = t_mtx_mem + (i*k);
+		t_mtx[i] = t_mtx_mem + (i*(*k));
 
 	/* allocate memory to simplify normalization */
-	zeroes_vector = calloc(sizeof(F_TYPE*), k);
+	zeroes_vector = calloc(sizeof(F_TYPE*), (*k));
 	if (NULL == zeroes_vector) {
 		free(u_mtx); free(u_mtx_mem);
 		free(t_mtx); free(t_mtx_mem);
@@ -812,16 +811,16 @@ enum status spkmeans_preperations(
 	}
 
 	/* calculate normalization with calc_l2_norm function */
-	for (i = 0; i < k; ++i)
+	for (i = 0; i < (*k); ++i)
 	{
 		for (j = 0; j < dp_num; ++j)
-			t_mtx[i][j] = u_mtx[i][j] / calc_l2_norm(u_mtx[i], zeroes_vector, k);
+			t_mtx[i][j] = u_mtx[i][j] / calc_l2_norm(u_mtx[i], zeroes_vector, (*k));
 	}
 
 	free(u_mtx);
 	free(u_mtx_mem);
 
-	memcpy(o_mtx_mem, t_mtx_mem, k*dp_num*sizeof(F_TYPE));
+	memcpy(o_mtx_mem, t_mtx_mem, (*k)*dp_num*sizeof(F_TYPE));
 
 	return status;
 
@@ -1205,20 +1204,12 @@ int main(int argc, char const *argv[])
 	/*-------------------------------*/
 
 	/* determine output matrix size */
-	if (JACOBI == goal) {
-		n = k;
-		m = dp_num;
-	} else if (SPK == goal) {
-		n = dp_num;
-		m = k;
-	} else {
-		n = dp_num;
-		m = dp_num;
-	}
+	n = dp_num;
+	m = dp_num;
 
 	/* allocate memory */
 	o_mtx = calloc(n, sizeof(F_TYPE*));
-	o_mtx_mem = calloc(n*m, sizeof(F_TYPE));
+	o_mtx_mem = calloc(n*n, sizeof(F_TYPE));
 	if ((NULL == o_mtx) || (NULL == o_mtx_mem)) {
 		free(o_mtx); free(o_mtx_mem);
 		PRINT_ERROR();
@@ -1226,14 +1217,14 @@ int main(int argc, char const *argv[])
 	}
 
 	for (i = 0; i < n; ++i)
-		o_mtx[i] = o_mtx_mem + (i*m);
+		o_mtx[i] = o_mtx_mem + (i*n);
 
 	/* allocate memory for eigenvalues */
 	eigenvalues = calloc(dp_num, sizeof(F_TYPE));
 
 	/* run spkmeans preperations */
 	status = spkmeans_preperations(
-		input_dps, dp_num, dim, k, goal,
+		input_dps, dp_num, dim, &k, goal,
 		o_mtx_mem, eigenvalues);
 
 	if (Error == status) {
@@ -1242,13 +1233,28 @@ int main(int argc, char const *argv[])
 		return status;
 	}
 
+	if (JACOBI == goal) {
+		n = dp_num; 
+		m = dp_num;
+	} else if (SPK == goal) {
+		n = dp_num; 
+		m = k;
+	}
+
+
 	/* print output matrix (and if needed - eigenvalues) */
+	/* TODO: if jacobi, print k eigenvectors or ALL eigenvectors? */
 	if (SPK != goal) {
 		if (JACOBI == goal) print_matrix(&eigenvalues, 1, n);
 		print_matrix(o_mtx, n, m);
+		return status;
 	}
 
-	/* TODO: if jacobi, print k eigenvectors or ALL eigenvectors? */
+	/* debug print - T matrix */
+	DEBUG_PRINT("T matrix\n");
+	#ifdef DEBUG
+	print_matrix(o_mtx, n, m);
+	#endif
 
 
 	/*==================*/
