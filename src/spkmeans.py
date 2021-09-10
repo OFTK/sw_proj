@@ -1,10 +1,10 @@
 import argparse
 import pandas as pd
 import numpy as np
+from enum import Enum
 import myspkmeanssp as spksp
 
 _datatype = np.float64
-_output_percision = 4
 
 class Goal(Enum):
     spk = 1
@@ -48,28 +48,6 @@ def kmeans_pp(df, k):
 
     return [int(x) for x in centroids.index]
 
-def print_finalized_array(arr, dim):
-    ret = ""
-    for i in range(len(arr)):
-        if (i % dim) == (dim - 1):
-            if i == (len(arr)-1): end_char = ""
-            else: end_char = "\n"
-        else: end_char = ","
-
-        print(round(arr[i], _output_percision), end=end_char)
-
-def print_according_to_goal(value, dim, goal):
-    if goal == 1:
-        print_finalized_array(value, dim)
-    elif goal == 2:
-        pass
-    elif goal == 3:
-        pass
-    elif goal == 4:
-        pass
-    elif goal == 5:
-        pass
-
 def main():
 
     # Argument parsing
@@ -94,25 +72,27 @@ def main():
 
     assert (k < len(df)), "ERROR: k is equal or greater than n (number of observations)"
 
-    if goal == 1: # It means that we need to perform the spkmeans algorithm
-
-        # Run the intial centroids chioce algorithm
-        initial_centroids_index = kmeans_pp(df, k)
-
-        goal_return_value = spksp.spkmeans_fit(
-        dim, k,
-        df.loc[initial_centroids_index].to_numpy().reshape(1, (k*dim)).tolist()[0],
-        df.to_numpy().reshape(1, (num_of_datapoints*dim)).tolist()[0]
-        )
-        
-    else:
-
-        goal_return_value = spksp.perform_subtask(
+    goal_return_value = spksp.perform_subtask(
         dim, k, goal,
         df.to_numpy().reshape(1, (num_of_datapoints*dim)).tolist()[0]
         )
 
-    print_according_to_goal(goal_return_value, dim, goal)
+    if goal == 1: # It means that we need to perform the spkmeans algorithm
+
+        if k == 0:
+            k = len(goal_return_value) / num_of_datapoints
+
+        # Run the intial centroids chioce algorithm
+        initial_centroids_index = kmeans_pp(goal_return_value, k)
+
+        goal_return_value = spksp.fit(
+        k, k,
+        goal_return_value.loc[initial_centroids_index].to_numpy().reshape(1, (k*k)).tolist()[0],
+        goal_return_value.to_numpy().reshape(1, (k*num_of_datapoints)).tolist()[0]
+        )
+
+    # print_according_to_goal(goal_return_value, dim, goal)
+    # TODO: No need, printing will be performed on C
 
 if __name__ == "__main__":
     main()
