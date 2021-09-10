@@ -18,9 +18,14 @@
 #define JACOBI_CONVERGENCE_SIGMA (0.001)
 #define JACOBI_MAX_ITERATIONS (100)
 
-/* TODO: make lines shorter than 80 characters */
-/* TODO: on jacobi - run only jacobi on input */
 
+
+/*======*/
+/* misc */
+/*======*/
+
+/* enums and typedefs */
+/*--------------------*/
 typedef struct f_and_idx {
 	F_TYPE f;
 	int idx;
@@ -43,21 +48,8 @@ enum goal {
 };
 
 
-/*=======*/
-/* debug */
-/*=======*/
-#define DEBUG
-
-#ifdef DEBUG
-#	define DEBUG_PRINT(x) printf(x) 
-#else
-#	define DEBUG_PRINT(x) do {} while (0)
-#endif
-
-
-/*======*/
-/* misc */
-/*======*/
+/* macros and headers */
+/*--------------------*/
 #define PRINT_ERROR() (printf("An Error Has Occured"))
 #define PRINT_INVALID_INPUT() (printf("Invalid Input!"))
 
@@ -71,6 +63,17 @@ int goal_enum(const char* goal_str) {
 	else if (0 == strcmp("jacobi", goal_str)) return JACOBI;
 	return BAD;
 }
+
+
+/*=======*/
+/* debug */
+/*=======*/
+#ifdef DEBUG
+#	define DEBUG_PRINT(x) printf(x) 
+#else
+#	define DEBUG_PRINT(x) do {} while (0)
+#endif
+
 
 
 /*============*/
@@ -167,7 +170,6 @@ void mul_square_matrices(
 }
 
 
-
 /*===========*/
 /* algorithm */
 /*===========*/
@@ -185,7 +187,9 @@ enum status calc_weighted_adjacency_matrix(
 		for (j = 0; j < n; ++j) {
 			if (i == j) wam[i][j] = 0;
 			else {
-				wam[i][j] = exp((-0.5) * calc_l2_norm(datapoints[i], datapoints[j], m));
+				wam[i][j] = exp(
+					(-0.5) * calc_l2_norm(datapoints[i], datapoints[j], m)
+				);
 				if (0 != errno) s = Error;
 			}
 		}
@@ -253,7 +257,8 @@ enum status calc_normalized_graph_laplacian(
 			/* calc eye matrix */
 			if (i == j) eye = 1; else eye = 0;
 			/* calc lnorm */
-			lnorm[i][j] = eye - (ddg_invsqrt[i][i]*wam[i][j]*ddg_invsqrt[j][j]);
+			lnorm[i][j] = eye - 
+				(ddg_invsqrt[i][i] * wam[i][j] * ddg_invsqrt[j][j]);
 		}
 	}
 
@@ -372,13 +377,14 @@ enum status calc_jacobi_iteration(
 		temp1 = io_mtx_A[i][i];
 		temp2 = io_mtx_A[j][j];
 
-		io_mtx_A[i][i] = pow(c,2)*temp1 + pow(s,2)*temp2
-						- 2*s*c*io_mtx_A[i][j];
+		io_mtx_A[i][i] = 
+			pow(c,2)*temp1 + pow(s,2)*temp2 - 2*s*c*io_mtx_A[i][j];
 
-		io_mtx_A[j][j] = pow(s,2)*temp1 + pow(c,2)*temp2
-						+ 2*s*c*io_mtx_A[i][j];
+		io_mtx_A[j][j] =
+			pow(s,2)*temp1 + pow(c,2)*temp2 + 2*s*c*io_mtx_A[i][j];
 
-		io_mtx_A[i][j] = (pow(c,2) - pow(s,2))*io_mtx_A[i][j] + s*c*(temp1 - temp2);
+		io_mtx_A[i][j] = 
+			(pow(c,2) - pow(s,2))*io_mtx_A[i][j] + s*c*(temp1 - temp2);
 		io_mtx_A[j][i] = io_mtx_A[i][j];
 
 		return Success;
@@ -387,16 +393,20 @@ enum status calc_jacobi_iteration(
 	return Finish;
 }
 
-/**
- * @details This method received a symmetric matrix, A. It returns a status value,
- * 			 an eignvalues matrix pointed by mtx_A (changes the received matrix) and
- * 			 an eignvectors matrix pointed by mtx_V.
- * @note
- * 		- This method perform in-place work on mtx_A. If you wish to save the values
- * 		  of that matrix, you should save it before using this function.
- * 		- This method does not check the validity of mtx_A, this method should be
- * 		  used cautiously only on symmetric matrices.
- */ 
+/*
+ 	@details This method receives a symmetric matrix - A.
+ 			It returns a status value, an eigenvalues matrix
+ 			pointed by mtx_A (changes the received matrix)
+ 			and an eigenvectors matrix pointed by mtx_V.
+
+	@note
+		- 	This method perform in-place work on mtx_A. If
+			you wish to save the values of that matrix, you
+			should save it before using this function.
+		- 	This method does not check the validity of mtx_A,
+			this method should be used cautiously only on 
+			symmetric matrices.
+*/ 
 enum status find_eigenvalues_jacobi(
 	F_TYPE** io_mtx_A, int dp_num,
 	F_TYPE** o_mtx_V,
@@ -429,7 +439,8 @@ enum status find_eigenvalues_jacobi(
 		mtx_V_temp[i] = mtx_V_temp_mem + i*dp_num;
 	}
 	
-	/* Doing the first loop's step in order to save the first P in o_mtx_V */
+	/* 	Doing the first loop's step in order to 
+		save the first P in o_mtx_V */
 	prev_off = calc_off(io_mtx_A, dp_num);
 
 	/* Calculating the first A' and P matrices */
@@ -510,7 +521,7 @@ enum status eigengap_heuristic(
 
 	/* find argmax */
 	*o_k = 0;
-	for (i = 0; i < (n/2); ++i) /* TODO: find out if n/2 or n instead */
+	for (i = 0; i < (n/2); ++i)
 	{
 		if (eigengaps[i] > max_gap)
 		{
@@ -523,7 +534,13 @@ enum status eigengap_heuristic(
 }
 
 /*	ALL PREPERATIONS FOR KMEANS LOGIC
-	recives input_dps and dimensions, returns status
+	
+	functionality:
+	on wam/ddg/lnorm - Receiveing input datapoints, and calculating all
+					   stages 1-3.
+   on jacobi		 - Receiving some square matrix in input_dps. Finding
+   					   eigenvalues and eigenvectors using jacobi method.
+	
 
 	o_mtx_mem - an output matrix, what it holds changes
 				according to goal:
@@ -534,8 +551,9 @@ enum status eigengap_heuristic(
 						  dp_num X dp_num eigenvectors matrix
 				SPK =>    dp_num X k T matrix 
 						  (new datapoints for kmeans algorithm)
-	o_eigenvalues - if goal = JACOBI, holds a vector of dp_num eigenvalues */
-
+	o_eigenvalues - if goal = JACOBI, holds a vector 
+					of dp_num eigenvalues
+*/
 enum status spkmeans_preperations(
 	F_TYPE** input_dps, int dp_num, int dim,
 	int* k, enum goal goal, 
@@ -559,7 +577,9 @@ enum status spkmeans_preperations(
 	F_TYPE** lnorm = NULL;
 	F_TYPE* lnorm_mem = NULL;
 
-	/* memory for normalized graph Laplacian */
+	/* memory for jacobi method */
+	F_TYPE** jacobi_input_mtx = NULL;
+	F_TYPE* jacobi_input_mtx_mem = NULL;
 	F_TYPE** eigenvectors = NULL;
 	F_TYPE* eigenvectors_mem = NULL;
 	F_TYPE** eigenvectors_transposed = NULL;
@@ -575,172 +595,202 @@ enum status spkmeans_preperations(
 
 
 
-	/*===========================*/
-	/* Weighted Adjacency Matrix */
-	/*===========================*/
 
-	/* allocate memory for WAM */
-	wam_mem = calloc(sizeof(F_TYPE), dp_num*dp_num);
-	wam = calloc(sizeof(F_TYPE*), dp_num);
-	if ((NULL == wam_mem) || (NULL == wam_mem))
-	{
-		status = Error;
-		goto end_wam_stage;
-	}
-	for (i = 0; i < dp_num; ++i)
-		wam[i] = wam_mem + (i*dp_num);
+	if (JACOBI != goal) {
 
-	/* calc Weighted Adjacency Matrix */
-	status = calc_weighted_adjacency_matrix(input_dps, dp_num, dim, wam);
+		/*===========================*/
+		/* Weighted Adjacency Matrix */
+		/*===========================*/
 
-	/* finish run if needed */
-	if ((Success != status) || (WAM == goal)) {
+		/* allocate memory for WAM */
+		wam_mem = calloc(sizeof(F_TYPE), dp_num*dp_num);
+		wam = calloc(sizeof(F_TYPE*), dp_num);
+		if ((NULL == wam_mem) || (NULL == wam_mem))
+		{
+			free(wam); free(wam_mem);
+			return Error;
+		}
 
-		end_wam_stage:
+		for (i = 0; i < dp_num; ++i)
+			wam[i] = wam_mem + (i*dp_num);
 
-		if (Success == status)
-			memcpy(o_mtx_mem, wam_mem, dp_num*dp_num*sizeof(F_TYPE));
+		/* calc Weighted Adjacency Matrix */
+		status = calc_weighted_adjacency_matrix(input_dps, dp_num, dim, wam);
 
+		/* finish run if needed */
+		if ((Success != status) || (WAM == goal)) {
+
+			if (Success == status)
+				memcpy(o_mtx_mem, wam_mem, dp_num*dp_num*sizeof(F_TYPE));
+
+			free(wam); free(wam_mem);
+			return status;
+		}
+
+		/*========================*/
+		/* Diagonal Degree Matrix */
+		/*========================*/
+
+		/* allocate memory for DDG */
+		ddg_mem = calloc(sizeof(F_TYPE), dp_num*dp_num);
+		ddg = calloc(sizeof(F_TYPE*), dp_num);
+		if ((NULL == ddg) || (NULL == ddg_mem)) {
+			free(wam); free(wam_mem);
+			free(ddg); free(ddg_mem);
+			return Error;		
+		}
+
+		for (i = 0; i < dp_num; ++i)
+			ddg[i] = ddg_mem + (i*dp_num);
+
+		/* calc Diagonal Degree Matrix */
+		status = calc_diagonal_degree_matrix(wam, dp_num, ddg);
+
+
+		/* finish run if needed */
+		if ((Success != status)  || (DDG == goal)) {
+
+			if (Success == status)
+				memcpy(o_mtx_mem, ddg_mem, dp_num*dp_num*sizeof(F_TYPE));
+
+			free(wam); free(wam_mem);
+			free(ddg); free(ddg_mem);
+			return status;
+		}
+
+
+		/*============================*/
+		/* Normalized Graph Laplacian */
+		/*============================*/
+
+		/* allocate memory for lnorm */
+		lnorm_mem = calloc(sizeof(F_TYPE), dp_num*dp_num);
+		lnorm = calloc(sizeof(F_TYPE*), dp_num);
+		if ((NULL == lnorm) || (NULL == lnorm_mem)) {
+			free(wam); free(wam_mem);
+			free(ddg); free(ddg_mem);
+			free(lnorm); free(lnorm_mem);
+			return Error;
+		}
+
+		for (i = 0; i < dp_num; ++i)
+			lnorm[i] = lnorm_mem + (i*dp_num);
+
+		status = calc_normalized_graph_laplacian(wam, ddg, dp_num, lnorm);
+
+		/* free no-longer needed memory */
 		free(wam); free(wam_mem);
-		return status;
-	}
-
-	/*========================*/
-	/* Diagonal Degree Matrix */
-	/*========================*/
-
-	/* allocate memory for DDG */
-	ddg_mem = calloc(sizeof(F_TYPE), dp_num*dp_num);
-	ddg = calloc(sizeof(F_TYPE*), dp_num);
-	if ((NULL == ddg) || (NULL == ddg_mem)) {
-		status = Error;
-		goto end_ddg_stage;
-	}
-
-	for (i = 0; i < dp_num; ++i)
-		ddg[i] = ddg_mem + (i*dp_num);
-
-	/* calc Diagonal Degree Matrix */
-	status = calc_diagonal_degree_matrix(wam, dp_num, ddg);
-
-
-	/* finish run if needed */
-
-	if ((Success != status)  || (DDG == goal)) {
-		end_ddg_stage:
-		free(wam); free(wam_mem);
-
-		if (Success == status)
-			memcpy(o_mtx_mem, ddg_mem, dp_num*dp_num*sizeof(F_TYPE));
-
 		free(ddg); free(ddg_mem);
-		return status;
+
+		if ((Success != status) || (LNORM == goal)) {
+
+			if (Success == status)
+				memcpy(o_mtx_mem, lnorm_mem, dp_num*dp_num*sizeof(F_TYPE)); 
+
+			free(lnorm); free(lnorm_mem);
+			return status;
+		}
+
 	}
 
 
-	/*============================*/
-	/* Normalized Graph Laplacian */
-	/*============================*/
+	/*=============================================*/
+	/* Jacobi Eigenvalues & Eigenvectors procedure */
+	/*=============================================*/
 
-	/* allocate memory for lnorm */
-	lnorm_mem = calloc(sizeof(F_TYPE), dp_num*dp_num);
-	lnorm = calloc(sizeof(F_TYPE*), dp_num);
-	if ((NULL == lnorm) || (NULL == lnorm_mem)) {
-		status = Error;
-		goto end_lnorm_stage;
+	/* allocate memory for input matrix (to make changes on) */
+	jacobi_input_mtx_mem = calloc(sizeof(F_TYPE), dp_num*dp_num);
+	jacobi_input_mtx = calloc(sizeof(F_TYPE*), dp_num);
+	if ((NULL == jacobi_input_mtx) || (NULL == jacobi_input_mtx_mem)) {
+		free(jacobi_input_mtx); free(jacobi_input_mtx_mem);
+		return Error;
 	}
 
 	for (i = 0; i < dp_num; ++i)
-		lnorm[i] = lnorm_mem + (i*dp_num);
+		jacobi_input_mtx[i] = jacobi_input_mtx_mem + (i*dp_num);
 
-	status = calc_normalized_graph_laplacian(wam, ddg, dp_num, lnorm);
-
-	end_lnorm_stage:
-	/* free no-longer needed memory */
-	free(wam); free(wam_mem);
-	free(ddg); free(ddg_mem);
-
-	if ((Success != status) || (LNORM == goal)) {
-
-		if (Success == status)
-			memcpy(o_mtx_mem, lnorm_mem, dp_num*dp_num*sizeof(F_TYPE)); 
-
-		free(lnorm); free(lnorm_mem);
-		return status;
+	/* copy input to the new matrix */
+	if (JACOBI == goal) {
+		for (i = 0; i < dp_num; ++i)
+			memcpy(
+				jacobi_input_mtx[i], input_dps[i],
+				dp_num * sizeof(F_TYPE));
 	}
 
-
-	/*==============================*/
-	/* Jacobi Eigenvalues procedure */
-	/*==============================*/
-
+	else {
+		memcpy(
+			jacobi_input_mtx_mem, lnorm_mem,
+			dp_num * dp_num * sizeof(F_TYPE));
+		free(lnorm); free(lnorm_mem);
+	}
+	
 	/* allocate memory for eigenvectors matrix */
 	eigenvectors_mem = calloc(sizeof(F_TYPE), dp_num*dp_num);
 	eigenvectors = calloc(sizeof(F_TYPE*), dp_num);
 	if ((NULL == eigenvectors) || (NULL == eigenvectors_mem)) {
-		status = Error;
-		goto end_jacobi_stage;
+		free(eigenvectors); free(eigenvectors_mem);
+		free(jacobi_input_mtx); free(jacobi_input_mtx_mem);
+		return Error;
 	}
 
 	for (i = 0; i < dp_num; ++i)
 		eigenvectors[i] = eigenvectors_mem + (i*dp_num);
 
-	if (Success != status) {
-		free(lnorm); free(lnorm_mem);
-		goto end_jacobi_stage;
-	}
-
 	/* TODO: find out why last eigenvalue is negative */
-	status =  find_eigenvalues_jacobi(lnorm, dp_num, eigenvectors, eigenvectors_mem);
+	/* execute Jacobi procedure */
+	/*--------------------------*/
+	status =  find_eigenvalues_jacobi(
+		jacobi_input_mtx, dp_num, eigenvectors, eigenvectors_mem);
+
+	/* check for errors */
+	if (Error == status) {
+		free(eigenvectors); free(eigenvectors_mem);
+		free(jacobi_input_mtx); free(jacobi_input_mtx_mem);
+		return Error;		
+	}
 
 	/* allocate memory for eigenvalues */
 	eigenvalues = calloc(sizeof(f_and_idx), dp_num);
 
 	if (NULL == eigenvalues) {
-		free(lnorm); free(lnorm_mem);
-		status = Error;
-		goto end_jacobi_stage;
+		free(eigenvectors); free(eigenvectors_mem);
+		free(jacobi_input_mtx); free(jacobi_input_mtx_mem);
+		return Error;
 	}
 
+	/* copy eigenvalues to a vector */
 	for (i = 0; i < dp_num; ++i){
-		eigenvalues[i].f = lnorm[i][i];
+		eigenvalues[i].f = jacobi_input_mtx[i][i];
 		eigenvalues[i].idx = i;
 	}
 
+	/* free no longer needed memory */
+	free(jacobi_input_mtx); free(jacobi_input_mtx_mem);
 
+	if (JACOBI == goal) {
 
+		/* copy all eigenvalues and k eigenvectors to output */
+		/*---------------------------------------------------*/
+		for (i = 0; i < dp_num; ++i)
+			o_eigenvalues[i] = eigenvalues[i].f;
 
-	end_jacobi_stage:
-
-	if ((Success != status) || (JACOBI == goal)) {
-
-		if (Success == status) {
-			/* copy all eigenvalues and k eigenvectors to output */
-			/*---------------------------------------------------*/
-			for (i = 0; i < dp_num; ++i)
-				o_eigenvalues[i] = eigenvalues[i].f;
-
-			/* transpose eigenvectors matrix - to display eigenvectors as rows */
-			/*-----------------------------------------------------------------*/
-			/* allocate memory */
-			eigenvectors_transposed = calloc(sizeof(F_TYPE*), dp_num);
-			if (NULL == eigenvectors_transposed) {
-				status = Error;
-				goto end_jacobi_stage;
-			}
-
-			for (i = 0; i < dp_num; ++i)
-				eigenvectors_transposed[i] = o_mtx_mem + (i*dp_num);
-
-			if (Success != status) {
-				free(lnorm); free(lnorm_mem);
-				goto end_jacobi_stage; /* this time - don't enter the if
-										  so only free memory and return */
-			}
-
-			/* transpose eigenvector matrix - to o_mtx_mem */
-			transpose_matrix(eigenvectors, eigenvectors_transposed, dp_num, dp_num);
+		/* transpose eigenvectors matrix - to output*/
+		/*------------------------------------------*/
+		/* allocate memory */
+		eigenvectors_transposed = calloc(sizeof(F_TYPE*), dp_num);
+		if (NULL == eigenvectors_transposed) {
+			free(eigenvectors); free(eigenvectors_mem);
+			free(eigenvalues);
+			return Error;
 		}
+
+		for (i = 0; i < dp_num; ++i)
+			eigenvectors_transposed[i] = o_mtx_mem + (i*dp_num);
+
+
+		/* transpose eigenvector matrix to o_mtx_mem */
+		transpose_matrix(
+			eigenvectors, eigenvectors_transposed, dp_num, dp_num);
 
 		free(eigenvalues);
 		free(eigenvectors); free(eigenvectors_mem);
@@ -771,14 +821,17 @@ enum status spkmeans_preperations(
 	u_mtx_mem = calloc(sizeof(F_TYPE), (*k)*dp_num);
 	u_mtx = calloc(sizeof(F_TYPE*), dp_num);
 	if ((NULL == u_mtx) || (NULL == u_mtx_mem)) {
-		status = Error;
-		goto end_jacobi_stage;
+		free(u_mtx); free(u_mtx_mem);
+		free(eigenvalues);
+		free(eigenvectors); free(eigenvectors_mem);
+		return Error;
 	}
 
 	for (i = 0; i < (dp_num); ++i)
 		u_mtx[i] = u_mtx_mem + (i*(*k));
 
-	/* copy the eigenvector columns - according to the k smallest eigenvalues */
+	/* 	copy the eigenvector columns - 
+		according to the k smallest eigenvalues */
 	for (i = 0; i < (*k); ++i)
 	{
 		for (j = 0; j < dp_num; ++j)
@@ -803,7 +856,7 @@ enum status spkmeans_preperations(
 	for (i = 0; i < dp_num; ++i)
 		t_mtx[i] = t_mtx_mem + (i*(*k));
 
-	/* allocate memory to simplify normalization */
+	/* allocate zeroe filled vector to simplify normalization */
 	zeroes_vector = calloc(sizeof(F_TYPE), (*k));
 	if (NULL == zeroes_vector) {
 		free(u_mtx); free(u_mtx_mem);
@@ -815,7 +868,8 @@ enum status spkmeans_preperations(
 	for (i = 0; i < dp_num; ++i)
 	{
 		for (j = 0; j < (*k); ++j)
-			t_mtx[i][j] = u_mtx[i][j] / calc_l2_norm(u_mtx[i], zeroes_vector, (*k));
+			t_mtx[i][j] = u_mtx[i][j] / 
+					calc_l2_norm(u_mtx[i], zeroes_vector, (*k));
 	}
 
 	free(u_mtx);
@@ -932,7 +986,8 @@ enum status kmeans(
 		/*-----------------------------------------------*/		
 		for (i = 0; i < dp_num; ++i)
 		{
-			curr_assigned_clstr = assign_to_cluster(input_dps[i], output_centrds, dim, k);
+			curr_assigned_clstr = 
+				assign_to_cluster(input_dps[i], output_centrds, dim, k);
 			output_cluster_assign[i] = curr_assigned_clstr;
 
 			centrds_ref_cnt[curr_assigned_clstr]++;
@@ -945,14 +1000,16 @@ enum status kmeans(
 		/* update centroids */
 		/*------------------*/
 		for (i = 0; i < k; ++i)
-			vec_div_by_scalar(output_centrds[i], centrds_sum[i], centrds_ref_cnt[i], dim);
+			vec_div_by_scalar(
+				output_centrds[i], centrds_sum[i], centrds_ref_cnt[i], dim);
 
 
 		/* check unchanging centroids end condition */
 		/*------------------------------------------*/
-		if ((iter_num != 0) && /* to avoid that the default values are received 
-								  in the first iteration. This extra condition 
-								  can cause 1 redundant iteration at worst... */
+		if ((iter_num != 0) && /* to avoid that the default values
+								  are received in the first iteration.
+								  This extra condition can cause 1
+								  redundant iteration at worst... */
 				(cmp_matrices(output_centrds, last_iter_centrds, dim, k))) {
 			break;
 		}
@@ -961,7 +1018,9 @@ enum status kmeans(
 		/* update last iteration centroids */
 		/*---------------------------------*/
 		for (i = 0; i < k; ++i)
-			memcpy(last_iter_centrds[i], output_centrds[i], sizeof(F_TYPE)*dim);
+			memcpy(
+				last_iter_centrds[i], output_centrds[i],
+				sizeof(F_TYPE)*dim);
 		iter_num++;
 	}
 
@@ -1005,10 +1064,14 @@ int scan_next_val(F_TYPE* x, FILE* finput) {
 	char c = 0;
 	int next_char = fscanf(finput, "%c", &c);
 
-	if ((1 == value_exists) && (1 == next_char) && (44 == c)) /* num with a comma */
+	if ((1 == value_exists) && 
+		(1 == next_char) && 
+		(44 == c)) /* num with a comma */
 		return 0;
 
-	if ((1 == value_exists) && (1 == next_char) && (10 == c)) /* num with LF */
+	if ((1 == value_exists) && 
+		(1 == next_char) && 
+		(10 == c)) /* num with LF */
 		return 1;
 
 	if (EOF == value_exists) /* EOF */
@@ -1062,7 +1125,7 @@ int main(int argc, char const *argv[])
 	/*===================*/
 
 	if (4 != argc) {
-		DEBUG_PRINT("main: bad num of arguments, expecting 3\n");
+		DEBUG_PRINT(" main: bad num of arguments, expecting 3\n");
 		PRINT_INVALID_INPUT();
 		return Error;
 	}
@@ -1070,7 +1133,7 @@ int main(int argc, char const *argv[])
 	k = atoi(argv[1]);
 	goal = goal_enum(argv[2]);
 	if (BAD == goal) {
-		DEBUG_PRINT("bad goal value: expected one of {spk, wam, ddg, lnorm, jacobi}");
+		DEBUG_PRINT("bad goal value");
 		PRINT_INVALID_INPUT();
 		return Error;
 	}
@@ -1108,8 +1171,8 @@ int main(int argc, char const *argv[])
 			}
 			if (curr_dim != 0) {
 				#ifdef DEBUG
-				printf("file terminated in the middle of a vector (dp num %d, in idx %d)\n",
-					dp_num, curr_dim);
+				printf("file terminated in the middle of a vector \
+					(dp num %d, in idx %d)\n", dp_num, curr_dim);
 				#endif
 				PRINT_INVALID_INPUT();
 				goto on_input_error;
@@ -1144,8 +1207,9 @@ int main(int argc, char const *argv[])
 		curr_dim++;
 		if (curr_dim > dim) {
 			#ifdef DEBUG
-			printf("bad input vector length: first vector is of length %d while %d'th vector is of length %d\n", 
-				dim, (dp_num+1), curr_dim);
+			printf("\
+				bad input vector length: first vector is of length %d while \
+				%d'th vector is of length %d\n", dim, (dp_num+1), curr_dim);
 			#endif
 			PRINT_INVALID_INPUT();
 			goto on_input_error;
@@ -1158,7 +1222,9 @@ int main(int argc, char const *argv[])
 		if (scan_status == 1) {
 			if (curr_dim != dim) {
 				# ifdef DEBUG
-				printf("bad input vector length: first vector is of length %d while %d'th vector is of length %d\n", 
+				printf("bad input vector length: \
+					first vector is of length %d \
+					while %d'th vector is of length %d\n", 
 					dim, (dp_num+1), curr_dim);
 				#endif
 				PRINT_INVALID_INPUT();
@@ -1167,13 +1233,16 @@ int main(int argc, char const *argv[])
 
 			dp_num++;
 
-			input_dp_mem = realloc(input_dp_mem, (sizeof(F_TYPE)*(dp_num*dim)));
+			input_dp_mem = realloc(
+				input_dp_mem, (sizeof(F_TYPE)*(dp_num*dim)));
 			if (NULL == input_dp_mem) {
 				PRINT_ERROR();
 				goto on_input_error;				
 			}
 
-			memcpy(input_dp_mem+((dp_num-1)*dim), curr_vector, sizeof(F_TYPE)*dim);
+			memcpy(
+				input_dp_mem + ((dp_num-1)*dim), curr_vector, 
+				sizeof(F_TYPE)*dim);
 
 			curr_dim = 0;
 		}
