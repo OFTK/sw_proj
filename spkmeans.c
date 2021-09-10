@@ -3,7 +3,6 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <string.h>
-#include <assert.h>
 #include <float.h>
 
 #define TRUE (1)
@@ -17,7 +16,6 @@
 /* Constants */
 #define JACOBI_CONVERGENCE_SIGMA (0.001)
 #define JACOBI_MAX_ITERATIONS (100)
-
 
 
 /*======*/
@@ -422,16 +420,20 @@ enum status find_eigenvalues_jacobi(
 	int prev_off = 0, curr_off = 0, i = 0;
 
 	/* Allocate locals */
-	/* TODO: replace asserts with error returns */
 	mtx_P_mem = (F_TYPE*)calloc(dp_num*dp_num, sizeof(F_TYPE));
 	mtx_P = (F_TYPE**)calloc(dp_num, sizeof(F_TYPE*));
-	assert(mtx_P_mem != NULL);
-	assert(mtx_P != NULL);
+	if ((NULL == mtx_P_mem) || (NULL == mtx_P)) {
+		free(mtx_P); free(mtx_P_mem);
+		return Error;
+	}
 
 	mtx_V_temp_mem = (F_TYPE*)calloc(dp_num*dp_num, sizeof(F_TYPE));
 	mtx_V_temp = (F_TYPE**)calloc(dp_num, sizeof(F_TYPE*));
-	assert(mtx_V_temp_mem != NULL);
-	assert(mtx_V_temp != NULL);
+	if ((NULL == mtx_V_mem) || (NULL == mtx_V)) {
+		free(mtx_P); free(mtx_P_mem);
+		free(mtx_V); free(mtx_V_mem);
+		return Error;
+	}
 
 	for (; i < dp_num; i++)
 	{
@@ -736,7 +738,7 @@ enum status spkmeans_preperations(
 	for (i = 0; i < dp_num; ++i)
 		eigenvectors[i] = eigenvectors_mem + (i*dp_num);
 
-	/* TODO: find out why last eigenvalue is negative */
+	/* TODO: It seems that jacobi is slightly inaccurate */
 	/* execute Jacobi procedure */
 	/*--------------------------*/
 	status =  find_eigenvalues_jacobi(
@@ -810,7 +812,6 @@ enum status spkmeans_preperations(
 
 
 	/* run eigengap heuristic - if needed */
-	/* TODO: make sure eigenvalues are greater than 0 */
 	if (0 == (*k))
 		status = eigengap_heuristic(eigenvalues, dp_num, k);
 
@@ -1310,7 +1311,6 @@ int main(int argc, char const *argv[])
 
 
 	/* print output matrix (and if needed - eigenvalues) */
-	/* TODO: if jacobi, print k eigenvectors or ALL eigenvectors? */
 	if (SPK != goal) {
 		if (JACOBI == goal) print_matrix(&eigenvalues, 1, n);
 		print_matrix(o_mtx, n, m);
