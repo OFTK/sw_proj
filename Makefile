@@ -1,5 +1,5 @@
 CC = gcc
-CC_CMD = $(CC) -ansi -Wall -Wextra -Werror -pedantic-errors spkmeans.c -lm -o spkmeans
+CC_CMD = $(CC) -ansi -Wall -Wextra -Werror -pedantic-errors src/spkmeans.c -lm -o spkmeans
 
 makec:
 	$(CC_CMD) 
