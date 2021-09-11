@@ -13,6 +13,8 @@ static PyObject* fit(PyObject* self, PyObject* args)
     int dim = 0, k = 0;
     int i = 0, j = 0;
 
+    int* output_cluster_assign = NULL;
+
     PyObject* centroids_list_obj = NULL;
     PyObject* points_list_obj = NULL;
     PyObject* float_obj = NULL;
@@ -21,6 +23,8 @@ static PyObject* fit(PyObject* self, PyObject* args)
     F_TYPE* centroids_arr_mem = NULL;
     F_TYPE** datapoints_arr_ptr = NULL;
     F_TYPE* datapoints_arr_mem = NULL;
+
+    enum status status;
 
 #ifdef DEBUG
     printf("Got to here!\n");
@@ -47,10 +51,16 @@ static PyObject* fit(PyObject* self, PyObject* args)
     centroids_arr_mem = calloc(sizeof(F_TYPE), k * dim);
     datapoints_arr_ptr = calloc(sizeof(F_TYPE*), number_of_datapoints);
     datapoints_arr_mem = calloc(sizeof(F_TYPE),number_of_datapoints * dim);
-    assert(centroids_arr_ptr != NULL);
-    assert(centroids_arr_mem != NULL);
-    assert(datapoints_arr_ptr != NULL);
-    assert(datapoints_arr_mem != NULL);
+    output_cluster_assign = calloc(sizeof(int), dim);
+    if (NULL == datapoints_arr_mem || NULL == datapoints_arr_ptr || 
+        NULL == centroids_arr_mem || NULL == centroids_arr_ptr ||
+        NULL == output_cluster_assign) {
+        free(datapoints_arr_mem); free(datapoints_arr_ptr); 
+        free(centroids_arr_mem); free(centroids_arr_ptr);
+        free(output_cluster_assign);
+		PRINT_ERROR();
+		return NULL;
+	}
 
 #ifdef DEBUG
     printf("Start parsing centroids!\n");
@@ -90,10 +100,16 @@ static PyObject* fit(PyObject* self, PyObject* args)
         }
     }
 
-    if (kmeans(dim, k, MAX_ITER, number_of_datapoints, datapoints_arr_ptr, centroids_arr_ptr) != 0)
-        PRINT_ERROR();
+    /* THE KMEANS PROCEDURE CALL */
+	status = kmeans(
+		datapoints_arr_ptr, dim, k, 
+		centroids_arr_ptr, output_cluster_assign,
+		k, MAX_ITER);
 
-    // TODO: Print the results
+	if (Success == status) 
+		print_matrix(centroids_arr_ptr, k, dim);
+	else
+		PRINT_ERROR();
 
 #ifdef DEBUG
     printf("Finished! :D\n");
@@ -103,6 +119,7 @@ static PyObject* fit(PyObject* self, PyObject* args)
     free(centroids_arr_mem);
     free(datapoints_arr_ptr);
     free(datapoints_arr_mem);
+    free(output_cluster_assign);
 
     return NULL;
 }
@@ -116,7 +133,7 @@ static PyObject* perform_subtask(PyObject* self, PyObject* args)
 
     PyObject* points_list_obj = NULL;
     PyObject* float_obj = NULL;
-    PyObject* return_value = NULL;
+    PyObject* return_value = PyList_New(0);
     PyObject* num = NULL;
 
     F_TYPE** datapoints_arr_ptr = NULL;
@@ -127,11 +144,13 @@ static PyObject* perform_subtask(PyObject* self, PyObject* args)
 
     F_TYPE* eigenvalues = NULL;
 
+    enum status status;
+
 #ifdef DEBUG
     printf("Got to here!\n");
 #endif
 
-    if (!PyArg_ParseTuple(args, "iiiO", &dim, &k, &goal &points_list_obj))
+    if (!PyArg_ParseTuple(args, "iiiO", &dim, &k, &goal, &points_list_obj))
         return NULL;
 
 #ifdef DEBUG
@@ -151,8 +170,11 @@ static PyObject* perform_subtask(PyObject* self, PyObject* args)
     // Allocating according to the received length
     datapoints_arr_ptr = calloc(sizeof(F_TYPE*), number_of_datapoints);
     datapoints_arr_mem = calloc(sizeof(F_TYPE),number_of_datapoints * dim);
-    assert(datapoints_arr_ptr != NULL);
-    assert(datapoints_arr_mem != NULL);
+    if ((datapoints_arr_ptr != NULL) || (datapoints_arr_mem != NULL))
+    {
+        free(datapoints_arr_ptr); free(datapoints_arr_mem);
+        return return_value;
+    }
 
 #ifdef DEBUG
     printf("Start parsing dps!\n");
@@ -168,25 +190,22 @@ static PyObject* perform_subtask(PyObject* self, PyObject* args)
             float_obj = PyList_GetItem(points_list_obj, i*dim+j);
             datapoints_arr_mem[(i*dim) + j] = PyFloat_AsDouble(float_obj);
 #ifdef DEBUG
-            printf("dp: %Lf\n", datapoints_arr_mem[(i*dim) + j]);
+            printf("dp: %f\n", datapoints_arr_mem[(i*dim) + j]);
 #endif
         }
     }
 
     /* Allocate memory */
-	o_mtx = calloc(n, sizeof(F_TYPE*));
-	o_mtx_mem = calloc(n*m, sizeof(F_TYPE));
-	if ((NULL == o_mtx) || (NULL == o_mtx_mem)) {
-		free(o_mtx); free(o_mtx_mem);
+	o_mtx = calloc(number_of_datapoints, sizeof(F_TYPE*));
+	o_mtx_mem = calloc(number_of_datapoints*number_of_datapoints, sizeof(F_TYPE));
+    eigenvalues = calloc(number_of_datapoints, sizeof(F_TYPE));
+	if ((NULL == o_mtx) || (NULL == o_mtx_mem) || (NULL == eigenvalues)) {
 		PRINT_ERROR();
-		return Error;
+		goto finish;
 	}
 
-	for (i = 0; i < n; ++i)
-		o_mtx[i] = o_mtx_mem + (i*m);
-
-	/* Allocate memory for eigenvalues */
-	eigenvalues = calloc(dp_num, sizeof(F_TYPE));
+	for (i = 0; i < number_of_datapoints; ++i)
+		o_mtx[i] = o_mtx_mem + (i*number_of_datapoints);
 
 	/* Performing subtask */
 	status = spkmeans_preperations(
@@ -194,34 +213,35 @@ static PyObject* perform_subtask(PyObject* self, PyObject* args)
 		o_mtx_mem, eigenvalues);
 
 	if (Error == status) {
-		free(o_mtx); free(o_mtx_mem); free(eigenvalues);
 		PRINT_ERROR();
-		return status;
+        goto finish;
 	}
 
 	/* Print output matrix (and if needed - eigenvalues) */
 	if (SPK != goal) {
-		if (JACOBI == goal) print_matrix(&eigenvalues, 1, n);
-		print_matrix(o_mtx, n, m);
+		if (JACOBI == goal) print_matrix(&eigenvalues, 1, number_of_datapoints);
+		print_matrix(o_mtx, number_of_datapoints, number_of_datapoints);
 	}
     else /* Returning the received value to the python module */
-    {
+    {   
+        Py_DECREF(return_value);
         return_value = PyList_New(k * number_of_datapoints);
 
     if (!return_value)
-        return NULL;
 
         for (i = 0; i < k * number_of_datapoints; i++) {
             num = PyFloat_FromDouble(o_mtx_mem[i]);
 
             if (!num) {
                 Py_DECREF(return_value);
-                return NULL;
+                goto finish;
             }
 
             PyList_SET_ITEM(return_value, i, num);
         }
     }
+
+finish:
 
     free(datapoints_arr_ptr);
     free(datapoints_arr_mem);
@@ -236,7 +256,7 @@ static PyObject* perform_subtask(PyObject* self, PyObject* args)
 static PyMethodDef methods[] = {
         {"perform_subtask", perform_subtask, METH_VARARGS,
         "Executes a sub-spkmeans function based on a received 'goal' parameter"},
-        {"spkmeans_fit", spkmeans_fit, METH_VARARGS,
+        {"fit", fit, METH_VARARGS,
         "Executes the spkmeans algorithm given"},
         {NULL, NULL, 0, NULL}
 };

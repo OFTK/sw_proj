@@ -53,7 +53,7 @@ def main():
     # Argument parsing
     parser = argparse.ArgumentParser(description='process spkmeans inputs.')
     parser.add_argument('k', type=int, nargs=1, help='number of clusters')
-    parser.add_argument('goal', type=Goal.from_string, choices=list(Goal),
+    parser.add_argument('goal', type=Goal.from_string, choices=list(Goal), 
         help='function to be used, choose from [spk, wam, ddg, lnorm, jacobi]')
     parser.add_argument('file_name', metavar='file_name', type=str, nargs=1, 
         help='The input file (.txt or .csv)')
@@ -70,14 +70,15 @@ def main():
     dim = df.shape[1]
     num_of_datapoints = df.shape[0]
 
-    assert (k < len(df)), "ERROR: k is equal or greater than n (number of observations)"
+    assert (k < len(df)), "An Error Has Occured"
 
     goal_return_value = spksp.perform_subtask(
         dim, k, goal,
         df.to_numpy().reshape(1, (num_of_datapoints*dim)).tolist()[0]
         )
-
-    if goal == 1: # It means that we need to perform the spkmeans algorithm
+    if len(goal_return_value == 0):
+        print("An Error Has Occured"); // TODO: Think if this needs to be here
+    elif goal == 1: # It means that we need to perform the spkmeans algorithm
 
         if k == 0:
             k = len(goal_return_value) / num_of_datapoints
