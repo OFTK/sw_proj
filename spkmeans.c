@@ -5,8 +5,6 @@
 #include <string.h>
 #include <float.h>
 
-#define TRUE (1)
-#define FALSE (0)
 #define F_TYPE double
 #define F_TYPE_FORMAT_SPEC ("%lf")
 #define F_TYPE_OUTPUT_FORMAT_SPEC ("%.4f")
@@ -16,6 +14,12 @@
 /* Constants */
 #define JACOBI_CONVERGENCE_SIGMA (0.001)
 #define JACOBI_MAX_ITERATIONS (100)
+
+#define KMEANS_MAX_ITERATIONS (300)
+
+#define TRUE (1)
+#define FALSE (0)
+
 
 
 /*======*/
@@ -66,7 +70,6 @@ int goal_enum(const char* goal_str) {
 /*=======*/
 /* debug */
 /*=======*/
-
 #ifdef DEBUG
 #	define DEBUG_PRINT(x) printf(x) 
 #else
@@ -173,6 +176,13 @@ void mul_square_matrices(
 /* algorithm */
 /*===========*/
 
+/* 	input: * datapoints, nXm matrix
+		   * n,m parameters
+
+	output: wam nXn matrix that should have been allocated already
+
+	Calculates step 1 in the algorithm, according to 1.1.1
+*/
 enum status calc_weighted_adjacency_matrix(
 	F_TYPE** datapoints, int n, int m,
 	F_TYPE** wam)
@@ -197,21 +207,38 @@ enum status calc_weighted_adjacency_matrix(
 	return s;
 }
 
+/* 	input: * wam, nXn matrix
+		   * n parameter
+
+	output: ddg nXn matrix that should have been allocated already
+
+	Calculates diagonal degree matrix, a part of step 2 in the
+	algorithm, according to 1.1.2 .
+*/
 enum status calc_diagonal_degree_matrix(
-	F_TYPE** wam, int dp_num,
+	F_TYPE** wam, int n,
 	F_TYPE** ddg)
 {
 	int i;
-	for (i = 0; i < dp_num; ++i)
-		ddg[i][i] = element_sum(wam[i], dp_num);
+	for (i = 0; i < n; ++i)
+		ddg[i][i] = element_sum(wam[i], n);
 
 	return Success;
 }
 
 
+/* 	input: * wam, n X n matrix
+		   * ddg, n X n matrix
+		   * n parameter
+
+	output: o_lnorm - n X n matrix that should 
+					have been allocated already.
+
+	Calculates step 3 in the algorithm, according to 1.1.2-1.1.3
+*/
 enum status calc_normalized_graph_laplacian(
-	F_TYPE** wam, F_TYPE** ddg, int dp_num,
-	F_TYPE** lnorm)
+	F_TYPE** wam, F_TYPE** ddg, int n,
+	F_TYPE** o_lnorm)
 {
 	int i, j;
 	enum status status = Success;
@@ -224,39 +251,45 @@ enum status calc_normalized_graph_laplacian(
 	F_TYPE** ddg_invsqrt = NULL;
 	F_TYPE* ddg_invsqrt_mem = NULL;
 
-	ddg_invsqrt_mem = calloc(sizeof(F_TYPE), dp_num*dp_num);
+	ddg_invsqrt_mem = calloc(sizeof(F_TYPE), n*n);
 	if (NULL == ddg_invsqrt_mem) return Error;
 
-	ddg_invsqrt = calloc(sizeof(F_TYPE*), dp_num);
+	ddg_invsqrt = calloc(sizeof(F_TYPE*), n);
 	if (NULL == ddg_invsqrt) 
 	{
 		free(ddg_invsqrt_mem);
 		return Error;
 	};
 
-	for (i = 0; i < dp_num; ++i)
-		ddg_invsqrt[i] = ddg_invsqrt_mem + (i*dp_num);
+	for (i = 0; i < n; ++i)
+		ddg_invsqrt[i] = ddg_invsqrt_mem + (i*n);
 
 	/* inverse square root of matrix main diagonal */
-	for (i = 0; i < dp_num; ++i)
+	for (i = 0; i < n; ++i)
 		ddg_invsqrt[i][i] = pow(ddg[i][i], (-0.5));
 
 	if (0 != errno) status = Error;
 
 
-	/* calc lnorm */
+	/* calc o_lnorm */
 	/*------------*/
-	/* 	because DDG and DDG^-0.5 are diagonal matrices, we can calculate 
-		we can avoid full matrix multipication, and just multiply each WAM
-		value with the right values in the DDG matrix */
+	/* 	
+		DDG is a diagonal matrix (thus also DDG^-0.5). Thus
+		we can avoid full matrix multipication in O(n^3), and 
+		do the calculation in O(n^2).
+		When D is a diagonal matrix an M is a square matrix, both
+		in R(nXn):
+			(D X M)[i][j] = D[i][i] * M[i][j]
+			(M X D)[i][j] = D[j][j] * M[i][j]
+	*/
 
-	for (i = 0; i < dp_num; ++i) {
-		for (j = 0; j < dp_num; ++j) {
+	for (i = 0; i < n; ++i) {
+		for (j = 0; j < n; ++j) {
 
 			/* calc eye matrix */
 			if (i == j) eye = 1; else eye = 0;
-			/* calc lnorm */
-			lnorm[i][j] = eye - 
+			/* calc o_lnorm */
+			o_lnorm[i][j] = eye - 
 				(ddg_invsqrt[i][i] * wam[i][j] * ddg_invsqrt[j][j]);
 		}
 	}
@@ -269,6 +302,19 @@ enum status calc_normalized_graph_laplacian(
 
 
 
+/*
+	inputs:
+		* dp - A datapoints to assign to a centroid.
+			   It's a vector of dimention dim.
+		* centroids - an array of k centroids, each of dimention dim.
+		* parameters - dim and k.
+	outputs:
+		* return an integer - index from 0 to k-1 - representing the
+		  assigned centroid.
+
+	From k centroids - find the one that is the closest to the datapoint, 
+	and return its index (from )
+*/
 int assign_to_cluster(
 	F_TYPE* dp, F_TYPE** centroids,
 	int dim, int k)
@@ -291,10 +337,10 @@ int assign_to_cluster(
 	return min_dist_centrd_idx;
 }
 
-/**
- * @details Calculates the (Frobenius Norm(mtx))^2 - sum((diagonal values)^2), 
- * 			which is called 'off(mtx)^2' of mtx in the specification document.
- */
+/*
+	@details Calculates the (Frobenius Norm(mtx))^2 - sum((diagonal values)^2), 
+			  which is called 'off(mtx)^2' of mtx in the specification document.
+*/
 int calc_off(F_TYPE** mtx, size_t mtx_columns_num)
 {
 	int off = 0;
@@ -309,8 +355,8 @@ int calc_off(F_TYPE** mtx, size_t mtx_columns_num)
 	return off;
 }
 
-/**
- * @details Calculates the next A' and P, given the current A.
+/*
+	@ details Calculates the next A' and P, given the current A.
  */ 
 enum status calc_jacobi_iteration(
 	F_TYPE** io_mtx_A, int dp_num,
@@ -540,7 +586,7 @@ enum status eigengap_heuristic(
 	
 	functionality:
 	on wam/ddg/lnorm - Receiveing input datapoints, and calculating all
-					   stages 1-3.
+					   steps 1-3.
    on jacobi		 - Receiving some square matrix in input_dps. Finding
    					   eigenvalues and eigenvectors using jacobi method.
 	
@@ -739,7 +785,6 @@ enum status spkmeans_preperations(
 	for (i = 0; i < dp_num; ++i)
 		eigenvectors[i] = eigenvectors_mem + (i*dp_num);
 
-	/* TODO: It seems that jacobi is slightly inaccurate */
 	/* execute Jacobi procedure */
 	/*--------------------------*/
 	status =  find_eigenvalues_jacobi(
@@ -920,7 +965,22 @@ enum status spkmeans_preperations(
 
 
 
-/* kmeans algorithm, from hw 1 */
+/* 
+	kmeans algorithm, from hw 1 
+	inputs:
+		* input dps - Input-datapoints, a matrix of dp_num X dim.
+		* parameters - dp_num and dim
+		* k - the number of centroids
+		* max_iter - an upper bound to the number of iterations.
+			 when equal to (-1) - there is no bound.
+	outputs:
+	 	* output_centrds - a matrix containin the centroids, k X dim.
+	 	* outout_cluster_assign - a vector of dp_num integers, 
+	 		for each datapoint - to which centroid is it assigned
+
+	returns enum status (doesn't use error, only Success / Error).
+
+*/
 enum status kmeans(
 	F_TYPE** input_dps, int dp_num, int dim,
 	F_TYPE** output_centrds, int* output_cluster_assign,
@@ -1125,7 +1185,6 @@ int main(int argc, char const *argv[])
 
 	/* input arguments */
 	int k = 0;
-	int max_iter = -1;  /* -1 symbolized no upper bound for max_iter. */
  	enum goal goal = BAD;
  	FILE* finput;
 
@@ -1136,7 +1195,7 @@ int main(int argc, char const *argv[])
 	int dim = 0;
 	int dp_num = 0;
 
-	/* for outputs of spkmeans preperations (stages 1-6) */
+	/* for outputs of spkmeans preperations (steps 1-6) */
 	F_TYPE** o_mtx = NULL;
 	F_TYPE* o_mtx_mem = NULL;
 	F_TYPE* eigenvalues = NULL;
@@ -1157,9 +1216,10 @@ int main(int argc, char const *argv[])
 	F_TYPE* curr_vector = NULL;
 	int scan_status = 0;
 
-	/*===================*/
-	/* parsing arguments */
-	/*===================*/
+
+	/*================================*/
+	/* parsing command line arguments */
+	/*================================*/
 
 	if (4 != argc) {
 		DEBUG_PRINT(" main: bad num of arguments, expecting 3\n");
@@ -1300,10 +1360,11 @@ int main(int argc, char const *argv[])
 		return status;
 
 
+
 	algorithm:
 
 	/*======================================*/
-	/* preperations for kmeans (stages 1-5) */
+	/* preperations for kmeans (steps 1-5) */
 	/*======================================*/
 
 	/* allocate memory for o_mtx_mem */
@@ -1327,8 +1388,14 @@ int main(int argc, char const *argv[])
 
 	/* allocate memory for eigenvalues */
 	eigenvalues = calloc(dp_num, sizeof(F_TYPE));
+	if (NULL == eigenvalues) {
+		free(o_mtx); free(o_mtx_mem);
+		PRINT_ERROR();
+		return Error;		
+	}
 
-	/* run spkmeans preperations */
+	/* RUN SPKMEANS PREPERATIONS */
+	/*---------------------------*/
 	status = spkmeans_preperations(
 		input_dps, dp_num, dim, &k, goal,
 		o_mtx_mem, eigenvalues);
@@ -1391,13 +1458,17 @@ int main(int argc, char const *argv[])
 	status = kmeans(
 		o_mtx, n, m, 
 		output_centroids, output_cluster_assign,
-		k, max_iter);
+		k, KMEANS_MAX_ITERATIONS);
 
 	if (Success == status) {
 		print_matrix(output_centroids, k, m);
 	}
 	else
 		PRINT_ERROR();
+
+	#ifdef DEBUG
+		printf("status is: %d", status);
+	#endif
 
 	free(o_mtx);
 	free(o_mtx_mem);
