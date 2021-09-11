@@ -6,34 +6,12 @@
 #include <float.h>
 #include "spkmeans.h"
 
-#define TRUE (1)
-#define FALSE (0)
-#define F_TYPE_FORMAT_SPEC ("%lf")
-#define F_TYPE_OUTPUT_FORMAT_SPEC ("%.4f")
-#define F_TYPE_MAX (DBL_MAX)
-#define F_TYPE_ABS(x) (fabs(x))
-
-/* Constants */
-#define JACOBI_CONVERGENCE_SIGMA (0.001)
-#define JACOBI_MAX_ITERATIONS (100)
-
-#define KMEANS_MAX_ITERATIONS (300)
-
-#define TRUE (1)
-#define FALSE (0)
-
 
 
 /*======*/
 /* misc */
 /*======*/
 
-/* enums and typedefs */
-/*--------------------*/
-typedef struct f_and_idx {
-	F_TYPE f;
-	int idx;
-} f_and_idx;
 
 int goal_enum(const char* goal_str) {
 	if 		(0 == strcmp("spk", goal_str)) return SPK;
@@ -975,8 +953,11 @@ enum status spkmeans_preperations(
 		* k - the number of centroids
 		* max_iter - an upper bound to the number of iterations.
 			 when equal to (-1) - there is no bound.
+		* centroids - k X dim matrix (k centroids of dimension dim)
+			 after initialization.
+
 	outputs:
-	 	* output_centrds - a matrix containin the centroids, k X dim.
+	 	* centroids - a matrix containin the centroids, k X dim.
 	 	* outout_cluster_assign - a vector of dp_num integers, 
 	 		for each datapoint - to which centroid is it assigned
 
@@ -985,7 +966,7 @@ enum status spkmeans_preperations(
 */
 enum status kmeans(
 	F_TYPE** input_dps, int dp_num, int dim,
-	F_TYPE** io_centrds, int* output_cluster_assign,
+	F_TYPE** centroids, int* output_cluster_assign,
 	int k, int max_iter)
 {
 	enum status status = Success;
@@ -1050,6 +1031,9 @@ enum status kmeans(
 		goto finish_kmeans;
 	}
 
+
+
+
 	/*======================*/
 	/* algorithm iterations */
 	/*======================*/
@@ -1073,7 +1057,8 @@ enum status kmeans(
 		/*-----------------------------------------------*/		
 		for (i = 0; i < dp_num; ++i)
 		{
-			curr_assigned_clstr = assign_to_cluster(input_dps[i], io_centrds, dim, k);
+			curr_assigned_clstr = 
+				assign_to_cluster(input_dps[i], centroids, dim, k);
 			output_cluster_assign[i] = curr_assigned_clstr;
 
 			centrds_ref_cnt[curr_assigned_clstr]++;
@@ -1086,16 +1071,17 @@ enum status kmeans(
 		/* update centroids */
 		/*------------------*/
 		for (i = 0; i < k; ++i)
-			vec_div_by_scalar(io_centrds[i], centrds_sum[i], centrds_ref_cnt[i],
-								 dim);
+			vec_div_by_scalar(
+				centroids[i], centrds_sum[i], centrds_ref_cnt[i], dim);
 
 
 		/* check unchanging centroids end condition */
 		/*------------------------------------------*/
-		if ((iter_num != 0) && /* to avoid that the default values are received 
-								  in the first iteration. This extra condition 
-								  can cause 1 redundant iteration at worst... */
-				(cmp_matrices(io_centrds, last_iter_centrds, dim, k))) {
+		if ((iter_num != 0) && /* to avoid that the default values
+								  are received in the first iteration.
+								  This extra condition can cause 1
+								  redundant iteration at worst... */
+				(cmp_matrices(centroids, last_iter_centrds, dim, k))) {
 			break;
 		}
 
@@ -1103,8 +1089,9 @@ enum status kmeans(
 		/* update last iteration centroids */
 		/*---------------------------------*/
 		for (i = 0; i < k; ++i)
-			memcpy(last_iter_centrds[i], io_centrds[i], sizeof(F_TYPE)*dim);
-			
+			memcpy(
+				last_iter_centrds[i], centroids[i],
+				sizeof(F_TYPE)*dim);
 		iter_num++;
 	}
 
@@ -1188,8 +1175,8 @@ int main(int argc, char const *argv[])
 	F_TYPE* eigenvalues = NULL;
 
 	/* memory for returned centroids */
-	F_TYPE** output_centroids = NULL;
-	F_TYPE* output_centroids_mem = NULL;
+	F_TYPE** kmeans_centroids = NULL;
+	F_TYPE* kmeans_centroids_mem = NULL;
 
 	/* memory for output cluster assignments */
 	int n = 0;
@@ -1421,44 +1408,42 @@ int main(int argc, char const *argv[])
 	/* allocate memory for output centroids */
 	m = k;
 	n = dp_num;
-	output_centroids_mem = calloc(sizeof(F_TYPE), k*m);
-	output_centroids = calloc(sizeof(F_TYPE*), k);
-	if ((NULL == output_centroids) || (NULL == output_centroids_mem)) {
-		free(output_centroids); free(output_centroids_mem);
+	kmeans_centroids_mem = calloc(sizeof(F_TYPE), k*m);
+	kmeans_centroids = calloc(sizeof(F_TYPE*), k);
+	if ((NULL == kmeans_centroids) || (NULL == kmeans_centroids_mem)) {
+		free(kmeans_centroids); free(kmeans_centroids_mem);
 		PRINT_ERROR();
 		return Error;
 	}
 
 	for (i = 0; i < k; ++i)
-		output_centroids[i] = output_centroids_mem + (i*m);
+		kmeans_centroids[i] = kmeans_centroids_mem + (i*m);
 
 	/* allocate memory for datapoint assignment to cluster */
 	output_cluster_assign = calloc(sizeof(int), n);
 	if (NULL == output_cluster_assign) {
-		free(output_centroids); free(output_centroids_mem);
+		free(kmeans_centroids); free(kmeans_centroids_mem);
 		PRINT_ERROR();
 		return Error;
 	}
 
-	/*==========================*/
-	/* centroids initialization */
-	/*==========================*/
-	
+
+	/* intialize centroids */
+	/*---------------------*/
+	/* centroids are initialized to be the first k datapoints */
 	for (i = 0; i < k; ++i)
-	{
-		/* copy the i'th vector to the i'th centroid */
-		memcpy(output_centroids[i], input_dps[i], sizeof(F_TYPE)*dim);
-	}
+		memcpy(kmeans_centroids[i], o_mtx[i], sizeof(F_TYPE)*k);
 
 
 	/* THE KMEANS PROCEDURE CALL */
+	/*---------------------------*/
 	status = kmeans(
 		o_mtx, n, m, 
-		output_centroids, output_cluster_assign,
+		kmeans_centroids, output_cluster_assign,
 		k, KMEANS_MAX_ITERATIONS);
 
 	if (Success == status) {
-		print_matrix(output_centroids, k, m);
+		print_matrix(kmeans_centroids, k, m);
 	}
 	else
 		PRINT_ERROR();
@@ -1470,8 +1455,8 @@ int main(int argc, char const *argv[])
 	free(o_mtx);
 	free(o_mtx_mem);
 
-	free(output_centroids);
-	free(output_centroids_mem);
+	free(kmeans_centroids);
+	free(kmeans_centroids_mem);
 
 	free(output_cluster_assign);
 
