@@ -272,10 +272,6 @@ int kmeans(int dim, int k, int max_iter, int datapoint_num,
     centrds_ref_cnt = calloc(sizeof(int), k);
     assert(centrds_ref_cnt != NULL);
 
-
-    // NO NEED TO INTIALIZE CENTROIDS - THIS IS DONE BY KMEANS++
-
-
     /*======================*/
     /* algorithm iterations */
     /*======================*/

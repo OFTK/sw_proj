@@ -6,6 +6,8 @@
 #include <float.h>
 #include "spkmeans.h"
 
+#define DEBUG
+
 /*======*/
 /* misc */
 /*======*/
@@ -1192,7 +1194,7 @@ int main(int argc, char const *argv[])
 	/*================================*/
 
 	if (4 != argc) {
-		DEBUG_PRINT(" main: bad num of arguments, expecting 3\n");
+		DEBUG_PRINT("main: bad num of arguments, expecting 3\n");
 		PRINT_INVALID_INPUT();
 		return Error;
 	}

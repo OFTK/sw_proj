@@ -29,7 +29,10 @@ static PyObject* fit(PyObject* self, PyObject* args)
 #endif
 
     if (!PyArg_ParseTuple(args, "iiOO", &dim, &k, &centroids_list_obj, &points_list_obj))
-        return NULL;
+    {
+        PRINT_ERROR();
+        return Py_BuildValue("");
+    }
 
 #ifdef DEBUG
     printf("Passed parseargs!\n");
@@ -57,7 +60,7 @@ static PyObject* fit(PyObject* self, PyObject* args)
         free(centroids_arr_mem); free(centroids_arr_ptr);
         free(output_cluster_assign);
 		PRINT_ERROR();
-		return NULL;
+        Py_BuildValue("");
 	}
 
 #ifdef DEBUG
@@ -118,8 +121,7 @@ static PyObject* fit(PyObject* self, PyObject* args)
     free(datapoints_arr_ptr);
     free(datapoints_arr_mem);
     free(output_cluster_assign);
-
-    return NULL;
+    Py_BuildValue("");
 }
 
 static PyObject* perform_subtask(PyObject* self, PyObject* args)
@@ -221,6 +223,10 @@ static PyObject* perform_subtask(PyObject* self, PyObject* args)
         goto finish;
 	}
 
+    #ifdef DEBUG
+        printf("Finished prep!\n");
+    #endif
+
 	/* Print output matrix (and if needed - eigenvalues) */
 	if (SPK != goal) {
 		if (JACOBI == goal) print_matrix(&eigenvalues, 1, number_of_datapoints);
@@ -232,16 +238,22 @@ static PyObject* perform_subtask(PyObject* self, PyObject* args)
         return_value = PyList_New(k * number_of_datapoints);
 
     if (!return_value)
+    {
+        Py_DECREF(return_value);
+        PRINT_ERROR();
+        goto finish;
+    }
 
-        for (i = 0; i < k * number_of_datapoints; i++) {
-            num = PyFloat_FromDouble(o_mtx_mem[i]);
+    for (i = 0; i < k * number_of_datapoints; i++) 
+    {
+        num = PyFloat_FromDouble(o_mtx_mem[i]);
 
-            if (!num) {
-                Py_DECREF(return_value);
-                goto finish;
-            }
+        if (!num) {
+            Py_DECREF(return_value);
+            goto finish;
+        }
 
-            PyList_SET_ITEM(return_value, i, num);
+        PyList_SET_ITEM(return_value, i, num);
         }
     }
 
