@@ -20,7 +20,6 @@ int goal_enum(const char* goal_str) {
 	return BAD;
 }
 
-
 /*=======*/
 /* debug */
 /*=======*/
@@ -296,14 +295,14 @@ int assign_to_cluster(
 	@details Calculates the (Frobenius Norm(mtx))^2 - sum((diagonal values)^2), 
 			  which is called 'off(mtx)^2' of mtx in the specification document.
 */
-int calc_off(F_TYPE** mtx, size_t mtx_columns_num)
+double calc_off(F_TYPE** mtx, size_t mtx_columns_num)
 {
-	int off = 0;
-	size_t i = 1, j = 0;
+	double off = 0;
+	size_t i = 0, j = 0;
 
-	for (;i < mtx_columns_num; i++)
+	for (i = 0; i < mtx_columns_num; i++)
 	{
-		for (;j < i; j++)
+		for (j = 0; j < i; j++)
 			off += 2 * pow(mtx[i][j], 2);
 	}
 
@@ -338,9 +337,12 @@ enum status calc_jacobi_iteration(
 			}
 		}
 	}
+
 #ifdef DEBUG_JACOBI
 	printf("Found max, A[%d][%d] = %f\n",i,j,max);
 #endif
+
+	printf("max %f, dp_num %d, k %d l %d\n\n", max, dp_num, k, l);
 
 	if (max != 0)
 	{
@@ -460,7 +462,7 @@ enum status find_eigenvalues_jacobi(
 
 	/* Calc the diagonal A' matrix */
 	for (i = 0;
-		JACOBI_CONVERGENCE_SIGMA > (curr_off - prev_off) &&
+		JACOBI_CONVERGENCE_SIGMA <= (prev_off - curr_off) &&
 	 	status != Finish &&
 	  	i < JACOBI_MAX_ITERATIONS;
 		i++)
@@ -487,7 +489,14 @@ enum status find_eigenvalues_jacobi(
 		/* Calculating the function 'off^2' of the new matrix */
 		prev_off = curr_off;
 		curr_off = calc_off(io_mtx_A, dp_num);
+		printf("sig: %.16f, curr: %.16f, prev: %.16f\n", JACOBI_CONVERGENCE_SIGMA, curr_off, prev_off);
 	}
+
+	printf("i: %d, stts: %d, sig: %d\n", i, status != Finish, JACOBI_CONVERGENCE_SIGMA <= (prev_off - curr_off));
+
+	printf("A':\n");
+	print_matrix(io_mtx_A, dp_num, dp_num);
+	printf("\n\n");
 
 #ifdef DEBUG_JACOBI
 	printf("Vectors:\n");
