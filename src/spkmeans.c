@@ -150,7 +150,7 @@ enum status calc_weighted_adjacency_matrix(
 				wam[i][j] = exp(
 					(-0.5) * calc_l2_norm(datapoints[i], datapoints[j], m)
 				);
-				if (0 != errno) s = Error;
+				if (ERANGE == errno) s = Error;
 			}
 		}
 	}
