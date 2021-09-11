@@ -1,10 +1,8 @@
-from setuptools import Extension, setup
+from distutils.core import setup, Extension
 
-module = Extension("capi_demo1",
-                  sources=['cap.c','capmodule.c'])
+module = Extension("mykmeanssp", sources = ["kmeans.c"])
 
-setup(
-	name='capi_demo1',
-    version='1.0',
-    description='Python wrapper for custom C extension',
-    ext_modules=[module])
+setup(name="mykmeanssp",
+      version = 1.0,
+      description = "Kmeans algo for swproj 2",
+      ext_modules = [module])
