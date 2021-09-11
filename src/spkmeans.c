@@ -35,7 +35,6 @@ typedef struct f_and_idx {
 	int idx;
 } f_and_idx;
 
-
 int goal_enum(const char* goal_str) {
 	if 		(0 == strcmp("spk", goal_str)) return SPK;
 	else if (0 == strcmp("wam", goal_str)) return WAM;
@@ -54,8 +53,6 @@ int goal_enum(const char* goal_str) {
 #else
 #	define DEBUG_PRINT(x) do {} while (0)
 #endif
-
-
 
 /*============*/
 /* math utils */
@@ -1091,6 +1088,7 @@ enum status kmeans(
 		for (i = 0; i < k; ++i)
 			vec_div_by_scalar(io_centrds[i], centrds_sum[i], centrds_ref_cnt[i],
 								 dim);
+
 
 		/* check unchanging centroids end condition */
 		/*------------------------------------------*/
