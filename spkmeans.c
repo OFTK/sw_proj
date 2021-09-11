@@ -66,6 +66,7 @@ int goal_enum(const char* goal_str) {
 /*=======*/
 /* debug */
 /*=======*/
+
 #ifdef DEBUG
 #	define DEBUG_PRINT(x) printf(x) 
 #else
@@ -800,6 +801,41 @@ enum status spkmeans_preperations(
 
 		return status;
 	}
+
+	/* for debug - print jacobi output when goal == SPK */
+	/*--------------------------------------------------*/
+	#ifdef DEBUG
+
+		for (i = 0; i < dp_num; ++i)
+			o_eigenvalues[i] = eigenvalues[i].f;
+		printf("\neigenvalues\n");
+		print_matrix(&o_eigenvalues, 1, dp_num);
+
+		/* transpose eigenvectors matrix for printing */
+		/* use jacobi_input_mtx_mem just because it's an 
+			existing pointer that is no longer used */
+		eigenvectors_transposed = calloc(sizeof(F_TYPE*), dp_num);
+		jacobi_input_mtx_mem = calloc(sizeof(F_TYPE), dp_num*dp_num);
+		if (NULL == eigenvectors_transposed) {
+			free(eigenvectors); free(eigenvectors_mem);
+			free(eigenvalues);
+			return Error;
+		}
+
+		for (i = 0; i < dp_num; ++i)
+			eigenvectors_transposed[i] = jacobi_input_mtx_mem + (i*dp_num);
+
+		transpose_matrix(
+			eigenvectors, eigenvectors_transposed, dp_num, dp_num);
+
+		printf("\neigenvectors\n");
+		print_matrix(eigenvectors_transposed, dp_num, dp_num);
+		printf("\n");
+
+		free(eigenvectors_transposed); free(jacobi_input_mtx_mem);
+
+	#endif		    /* END DEBUG CODE */
+	/*--------------------------------------------------*/
 
 
 	/*=========================================*/
