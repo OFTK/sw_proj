@@ -2,8 +2,6 @@
 #include <Python.h>
 #include "spkmeans.h"
 
-#define DEBUG // TODO : REMOVE
-
 const static int MAX_ITER = 300;
 
 static PyObject* fit(PyObject* self, PyObject* args)

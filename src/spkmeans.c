@@ -342,8 +342,6 @@ enum status calc_jacobi_iteration(
 	printf("Found max, A[%d][%d] = %f\n",i,j,max);
 #endif
 
-	printf("max %f, dp_num %d, k %d l %d\n\n", max, dp_num, k, l);
-
 	if (max != 0)
 	{
 		theta = (io_mtx_A[j][j] - io_mtx_A[i][i]) / (2*io_mtx_A[i][j]);
@@ -461,7 +459,7 @@ enum status find_eigenvalues_jacobi(
 	curr_off = calc_off(io_mtx_A, dp_num);
 
 	/* Calc the diagonal A' matrix */
-	for (i = 0;
+	for (i = 1;
 		JACOBI_CONVERGENCE_SIGMA <= (prev_off - curr_off) &&
 	 	status != Finish &&
 	  	i < JACOBI_MAX_ITERATIONS;
@@ -489,14 +487,7 @@ enum status find_eigenvalues_jacobi(
 		/* Calculating the function 'off^2' of the new matrix */
 		prev_off = curr_off;
 		curr_off = calc_off(io_mtx_A, dp_num);
-		printf("sig: %.16f, curr: %.16f, prev: %.16f\n", JACOBI_CONVERGENCE_SIGMA, curr_off, prev_off);
 	}
-
-	printf("i: %d, stts: %d, sig: %d\n", i, status != Finish, JACOBI_CONVERGENCE_SIGMA <= (prev_off - curr_off));
-
-	printf("A':\n");
-	print_matrix(io_mtx_A, dp_num, dp_num);
-	printf("\n\n");
 
 #ifdef DEBUG_JACOBI
 	printf("Vectors:\n");

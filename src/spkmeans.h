@@ -7,8 +7,6 @@
 #define F_TYPE_MAX (DBL_MAX)
 #define F_TYPE_ABS(x) (fabs(x))
 
-#define DEBUG_JACOBI
-
 /*===========*/
 /* Constants */
 /*===========*/
