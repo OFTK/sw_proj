@@ -837,7 +837,7 @@ enum status spkmeans_preperations(
 /* kmeans algorithm, from hw 1 */
 enum status kmeans(
 	F_TYPE** input_dps, int dp_num, int dim,
-	F_TYPE** output_centrds, int* output_cluster_assign,
+	F_TYPE** io_centrds, int* output_cluster_assign,
 	int k, int max_iter)
 {
 	enum status status = Success;
@@ -902,18 +902,6 @@ enum status kmeans(
 		goto finish_kmeans;
 	}
 
-
-
-	/*==========================*/
-	/* centroids initialization */
-	/*==========================*/
-	
-	for (i = 0; i < k; ++i)
-	{
-		/* copy the i'th vector to the i'th centroid */
-		memcpy(output_centrds[i], input_dps[i], sizeof(F_TYPE)*dim);
-	}
-
 	/*======================*/
 	/* algorithm iterations */
 	/*======================*/
@@ -937,7 +925,7 @@ enum status kmeans(
 		/*-----------------------------------------------*/		
 		for (i = 0; i < dp_num; ++i)
 		{
-			curr_assigned_clstr = assign_to_cluster(input_dps[i], output_centrds, dim, k);
+			curr_assigned_clstr = assign_to_cluster(input_dps[i], io_centrds, dim, k);
 			output_cluster_assign[i] = curr_assigned_clstr;
 
 			centrds_ref_cnt[curr_assigned_clstr]++;
@@ -950,7 +938,7 @@ enum status kmeans(
 		/* update centroids */
 		/*------------------*/
 		for (i = 0; i < k; ++i)
-			vec_div_by_scalar(output_centrds[i], centrds_sum[i], centrds_ref_cnt[i], dim);
+			vec_div_by_scalar(io_centrds[i], centrds_sum[i], centrds_ref_cnt[i], dim);
 
 
 		/* check unchanging centroids end condition */
@@ -958,7 +946,7 @@ enum status kmeans(
 		if ((iter_num != 0) && /* to avoid that the default values are received 
 								  in the first iteration. This extra condition 
 								  can cause 1 redundant iteration at worst... */
-				(cmp_matrices(output_centrds, last_iter_centrds, dim, k))) {
+				(cmp_matrices(io_centrds, last_iter_centrds, dim, k))) {
 			break;
 		}
 
@@ -966,7 +954,7 @@ enum status kmeans(
 		/* update last iteration centroids */
 		/*---------------------------------*/
 		for (i = 0; i < k; ++i)
-			memcpy(last_iter_centrds[i], output_centrds[i], sizeof(F_TYPE)*dim);
+			memcpy(last_iter_centrds[i], io_centrds[i], sizeof(F_TYPE)*dim);
 		iter_num++;
 	}
 
@@ -1288,7 +1276,17 @@ int main(int argc, char const *argv[])
 		return Error;
 	}
 
+	/*==========================*/
+	/* centroids initialization */
+	/*==========================*/
 	
+	for (i = 0; i < k; ++i)
+	{
+		/* copy the i'th vector to the i'th centroid */
+		memcpy(output_centroids[i], input_dps[i], sizeof(F_TYPE)*dim);
+	}
+
+
 	/* THE KMEANS PROCEDURE CALL */
 	status = kmeans(
 		o_mtx, n, d, 
