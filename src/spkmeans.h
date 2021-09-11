@@ -12,7 +12,7 @@
 /* Constants */
 /*===========*/
 
-#define JACOBI_CONVERGENCE_SIGMA (0.001)
+#define JACOBI_CONVERGENCE_SIGMA (pow(10,-15))
 #define JACOBI_MAX_ITERATIONS (100)
 
 #define KMEANS_MAX_ITERATIONS (300)

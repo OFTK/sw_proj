@@ -6,8 +6,6 @@
 #include <float.h>
 #include "spkmeans.h"
 
-
-
 /*======*/
 /* misc */
 /*======*/
@@ -206,7 +204,10 @@ enum status calc_normalized_graph_laplacian(
 	F_TYPE* ddg_invsqrt_mem = NULL;
 
 	ddg_invsqrt_mem = calloc(sizeof(F_TYPE), n*n);
-	if (NULL == ddg_invsqrt_mem) return Error;
+	if (NULL == ddg_invsqrt_mem) 
+	{
+		return Error;
+	}
 
 	ddg_invsqrt = calloc(sizeof(F_TYPE*), n);
 	if (NULL == ddg_invsqrt) 
@@ -354,7 +355,7 @@ enum status calc_jacobi_iteration(
 		s = t*c;
 #ifdef DEBUG_JACOBI
 		printf("Theta: %f\n t: %f\n c: %f\n s: %f\n",theta, t, c, s);
-#endif		
+#endif
 
 		for (k = 0; k < dp_num; k++)
 			o_mtx_P[k][k] = 1;
@@ -388,9 +389,8 @@ enum status calc_jacobi_iteration(
 		io_mtx_A[j][j] =
 			pow(s,2)*temp1 + pow(c,2)*temp2 + 2*s*c*io_mtx_A[i][j];
 
-		io_mtx_A[i][j] = 
-			(pow(c,2) - pow(s,2))*io_mtx_A[i][j] + s*c*(temp1 - temp2);
-		io_mtx_A[j][i] = io_mtx_A[i][j];
+		io_mtx_A[i][j] = 0;
+		io_mtx_A[j][i] = 0;
 
 		return Success;
 	}
@@ -424,7 +424,8 @@ enum status find_eigenvalues_jacobi(
 	F_TYPE* mtx_V_temp_mem = NULL;
 
 	enum status status = Success;
-	int prev_off = 0, curr_off = 0, i = 0;
+	F_TYPE prev_off = 0, curr_off = 0;
+	int i = 0;
 
 	/* Allocate locals */
 	mtx_P_mem = (F_TYPE*)calloc(dp_num*dp_num, sizeof(F_TYPE));
@@ -459,7 +460,7 @@ enum status find_eigenvalues_jacobi(
 
 	/* Calc the diagonal A' matrix */
 	for (i = 0;
-		JACOBI_CONVERGENCE_SIGMA > curr_off - prev_off &&
+		JACOBI_CONVERGENCE_SIGMA > (curr_off - prev_off) &&
 	 	status != Finish &&
 	  	i < JACOBI_MAX_ITERATIONS;
 		i++)
@@ -624,9 +625,6 @@ enum status spkmeans_preperations(
 	F_TYPE* t_mtx_mem = NULL;
 	F_TYPE* zeroes_vector = NULL;
 
-
-
-
 	if (JACOBI != goal) {
 
 		/*===========================*/
@@ -676,7 +674,6 @@ enum status spkmeans_preperations(
 
 		/* calc Diagonal Degree Matrix */
 		status = calc_diagonal_degree_matrix(wam, dp_num, ddg);
-
 
 		/* finish run if needed */
 		if ((Success != status)  || (DDG == goal)) {
@@ -789,7 +786,7 @@ enum status spkmeans_preperations(
 	}
 
 	/* copy eigenvalues to a vector */
-	for (i = 0; i < dp_num; ++i){
+	for (i = 0; i < dp_num; ++i) {
 		eigenvalues[i].f = jacobi_input_mtx[i][i];
 		eigenvalues[i].idx = i;
 	}
@@ -863,7 +860,6 @@ enum status spkmeans_preperations(
 
 	#endif		    /* END DEBUG CODE */
 	/*--------------------------------------------------*/
-
 
 	/*=========================================*/
 	/* preparing matrix for kmeans (steps 4-5) */

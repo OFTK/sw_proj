@@ -168,8 +168,8 @@ static PyObject* perform_subtask(PyObject* self, PyObject* args)
 #endif
 
     // Allocating according to the received length
-    datapoints_arr_ptr = calloc(sizeof(F_TYPE*), number_of_datapoints);
-    datapoints_arr_mem = calloc(sizeof(F_TYPE), number_of_datapoints * dim);
+    datapoints_arr_ptr = calloc(number_of_datapoints, sizeof(F_TYPE*));
+    datapoints_arr_mem = calloc(number_of_datapoints * dim, sizeof(F_TYPE));
     if ((datapoints_arr_ptr == NULL) || (datapoints_arr_mem == NULL))
     {
         PRINT_ERROR();
@@ -210,10 +210,13 @@ static PyObject* perform_subtask(PyObject* self, PyObject* args)
 	for (i = 0; i < number_of_datapoints; ++i)
 		o_mtx[i] = o_mtx_mem + (i*number_of_datapoints);
 
+    /* Reseting errno */
+	errno = 0;
+
 	/* Performing subtask */
-	    status = spkmeans_preperations(
-		datapoints_arr_ptr, number_of_datapoints, dim, &k, goal,
-		o_mtx_mem, eigenvalues);
+    status = spkmeans_preperations(
+    datapoints_arr_ptr, number_of_datapoints, dim, &k, goal,
+    o_mtx_mem, eigenvalues);
 
 	if (Error == status) {
 		PRINT_ERROR();
