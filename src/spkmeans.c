@@ -222,11 +222,15 @@ enum status calc_normalized_graph_laplacian(
 	for (i = 0; i < n; ++i)
 		ddg_invsqrt[i][i] = pow(ddg[i][i], (-0.5));
 
-	if (0 != errno) status = Error;
+	if ((EDOM == errno) || (ERANGE == errno)) {
+		free(ddg_invsqrt);
+		free(ddg_invsqrt_mem);
+		return Error;
+	}
 
 
 	/* calc o_lnorm */
-	/*------------*/
+	/*--------------*/
 	/* 	
 		DDG is a diagonal matrix (thus also DDG^-0.5). Thus
 		we can avoid full matrix multipication in O(n^3), and 
@@ -264,10 +268,10 @@ enum status calc_normalized_graph_laplacian(
 		* parameters - dim and k.
 	outputs:
 		* return an integer - index from 0 to k-1 - representing the
-		  assigned centroid.
+		  assigned centroid, or (-1) on error
 
 	From k centroids - find the one that is the closest to the datapoint, 
-	and return its index (from )
+	and return its index.
 */
 int assign_to_cluster(
 	F_TYPE* dp, F_TYPE** centroids,
@@ -282,6 +286,8 @@ int assign_to_cluster(
 	for (i = 0; i < k; ++i)
 	{
 		curr_dist = pow(calc_l2_norm(dp, centroids[i], dim), 2);
+		if ((EDOM == errno) || (ERANGE == errno))
+			return (-1);
 		if (curr_dist < min_dist) {
 			min_dist = curr_dist;
 			min_dist_centrd_idx = i;
@@ -1055,6 +1061,10 @@ enum status kmeans(
 		{
 			curr_assigned_clstr = 
 				assign_to_cluster(input_dps[i], centroids, dim, k);
+			if ((-1) == curr_assigned_clstr) {
+				status = Error;
+				goto finish_kmeans;
+			}
 			output_cluster_assign[i] = curr_assigned_clstr;
 
 			centrds_ref_cnt[curr_assigned_clstr]++;
