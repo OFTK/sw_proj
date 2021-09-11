@@ -65,13 +65,6 @@ def main():
 
     # Read input file, then adjust and sort the read dataframe
     df = pd.read_csv(file_name, header=None, dtype=_datatype)
-    #.set_index(0).sort_index()
-    #df.index = df.index.map(int) # TODO : What are those?
-    
-    #print("df:")
-    #print(df)
-    #print("df shape:")
-    #print(df.shape)
 
     dim = df.shape[1]
     num_of_datapoints = df.shape[0]
@@ -83,7 +76,7 @@ def main():
         df.to_numpy().reshape(1, (num_of_datapoints*dim)).tolist()[0]
         )
 
-    if len(goal_return_value == 0):
+    if len(goal_return_value) == 0:
         print("An Error Has Occured"); # TODO: Think if this needs to be here
     elif goal == 1: # It means that we need to perform the spkmeans algorithm
 
