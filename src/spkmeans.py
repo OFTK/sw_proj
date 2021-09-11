@@ -77,7 +77,8 @@ def main():
         )
 
     if len(goal_return_value) == 0:
-        print("An Error Has Occured"); # TODO: Think if this needs to be here
+        print("An Error Has Occured - WHAT?"); # TODO: Think if this needs to be here
+                                               # TODO: this happens
     elif goal == 1: # It means that we need to perform the spkmeans algorithm
 
         if k == 0:
