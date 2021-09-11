@@ -69,7 +69,7 @@ def main():
     dim = df.shape[1]
     num_of_datapoints = df.shape[0]
 
-    assert (k < len(df)), "An Error Has Occured"
+    assert (k < len(df)), "Input error"
 
     goal_return_value = spksp.perform_subtask(
         dim, k, goal,
