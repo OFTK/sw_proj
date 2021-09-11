@@ -2,7 +2,7 @@
 #include <Python.h>
 #include "spkmeans.h"
 
-#define DEBUG
+#define DEBUG // TODO : REMOVE
 
 const static int MAX_ITER = 300;
 
@@ -27,7 +27,7 @@ static PyObject* fit(PyObject* self, PyObject* args)
     enum status status;
 
 #ifdef DEBUG
-    printf("Got to here!\n");
+    printf("Got to here! In fit\n");
 #endif
 
     if (!PyArg_ParseTuple(args, "iiOO", &dim, &k, &centroids_list_obj, &points_list_obj))
@@ -147,18 +147,18 @@ static PyObject* perform_subtask(PyObject* self, PyObject* args)
     enum status status;
 
 #ifdef DEBUG
-    printf("Got to here!\n");
+    printf("Got to here! in subtask\n");
 #endif
 
     if (!PyArg_ParseTuple(args, "iiiO", &dim, &k, &goal, &points_list_obj))
-        return NULL;
+        return return_value;
 
 #ifdef DEBUG
     printf("Passed parseargs!\n");
 
-    printf("d:%d\n", dim);
+    printf("dim:%d\n", dim);
     printf("k:%d\n", k);
-    printf("goal:%d", goal);
+    printf("goal:%d\n", goal);
 #endif
 
     number_of_datapoints = PyList_Size(points_list_obj) / dim;
@@ -169,9 +169,10 @@ static PyObject* perform_subtask(PyObject* self, PyObject* args)
 
     // Allocating according to the received length
     datapoints_arr_ptr = calloc(sizeof(F_TYPE*), number_of_datapoints);
-    datapoints_arr_mem = calloc(sizeof(F_TYPE),number_of_datapoints * dim);
-    if ((datapoints_arr_ptr != NULL) || (datapoints_arr_mem != NULL))
+    datapoints_arr_mem = calloc(sizeof(F_TYPE), number_of_datapoints * dim);
+    if ((datapoints_arr_ptr == NULL) || (datapoints_arr_mem == NULL))
     {
+        PRINT_ERROR();
         free(datapoints_arr_ptr); free(datapoints_arr_mem);
         return return_value;
     }
@@ -189,11 +190,13 @@ static PyObject* perform_subtask(PyObject* self, PyObject* args)
         {
             float_obj = PyList_GetItem(points_list_obj, i*dim+j);
             datapoints_arr_mem[(i*dim) + j] = PyFloat_AsDouble(float_obj);
-#ifdef DEBUG
-            printf("dp: %f\n", datapoints_arr_mem[(i*dim) + j]);
-#endif
         }
     }
+
+    #ifdef DEBUG
+            printf("Parsed dps:\n");
+            print_matrix(datapoints_arr_ptr, number_of_datapoints, dim);
+    #endif
 
     /* Allocate memory */
 	o_mtx = calloc(number_of_datapoints, sizeof(F_TYPE*));
@@ -208,8 +211,8 @@ static PyObject* perform_subtask(PyObject* self, PyObject* args)
 		o_mtx[i] = o_mtx_mem + (i*number_of_datapoints);
 
 	/* Performing subtask */
-	status = spkmeans_preperations(
-		datapoints_arr_ptr, number_of_datapoints, dim, k, goal,
+	    status = spkmeans_preperations(
+		datapoints_arr_ptr, number_of_datapoints, dim, &k, goal,
 		o_mtx_mem, eigenvalues);
 
 	if (Error == status) {
@@ -224,7 +227,7 @@ static PyObject* perform_subtask(PyObject* self, PyObject* args)
 	}
     else /* Returning the received value to the python module */
     {   
-        Py_DECREF(return_value);
+        Py_DECREF(return_value); // Because we've already assigned a py object...
         return_value = PyList_New(k * number_of_datapoints);
 
     if (!return_value)

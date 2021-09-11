@@ -25,7 +25,7 @@ void print_matrix(F_TYPE** matrix, int n, int m);
 
 enum status spkmeans_preperations(
 	F_TYPE** input_dps, int dp_num, int dim,
-	int k, enum goal goal, 
+	int* k, enum goal goal, 
 	F_TYPE* o_mtx_mem, F_TYPE* o_eigenvalues);
 
 enum status kmeans(
