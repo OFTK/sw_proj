@@ -4,6 +4,7 @@
 #define F_TYPE double
 #define F_TYPE_FORMAT_SPEC ("%lf")
 #define F_TYPE_OUTPUT_FORMAT_SPEC ("%.4f")
+#define F_TYPE_OUTPUT_FORMAT_SPEC_ZERO ("0.0000")
 #define F_TYPE_MAX (DBL_MAX)
 #define F_TYPE_ABS(x) (fabs(x))
 
@@ -13,6 +14,8 @@
 
 #define JACOBI_CONVERGENCE_SIGMA (pow(10,-15))
 #define JACOBI_MAX_ITERATIONS (100)
+
+#define MIN_ZERO_VAL (-0.00005)
 
 #define KMEANS_MAX_ITERATIONS (300)
 
