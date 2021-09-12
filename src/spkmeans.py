@@ -13,7 +13,7 @@ class Goal(IntEnum):
     lnorm = 3
     jacobi = 4
 
-    # In order to avoid raising a 'KeyError' while actually getting a 
+    # In order to avoid raising a 'KeyError' while actually getting a
     # 'ValueError'
     @staticmethod
     def from_string(s):
@@ -106,7 +106,8 @@ def main():
         # Performing kmeans
         goal_return_value = spksp.fit(
         k, k,
-        df.loc[initial_centroids_index].to_numpy().reshape(1, (k*k)).tolist()[0],
+        df.loc[initial_centroids_index].to_numpy().
+            reshape(1, (k*k)).tolist()[0],
         df.to_numpy().reshape(1, (k*num_of_datapoints)).tolist()[0]
         )
 

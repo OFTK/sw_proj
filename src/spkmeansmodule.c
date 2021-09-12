@@ -5,6 +5,30 @@
 const static int MAX_ITER = 300;
 
 /**
+ * Parses a python list into a C type matrix.
+ */
+void py_arr_to_mtx(PyObject* py_arr, 
+                  F_TYPE** arr_ptr, F_TYPE* arr_mem,
+                  int i_max, int j_max)
+{
+    int i = 0;
+    int j = 0;
+
+    PyObject* double_obj;
+
+    for (i = 0; i < i_max; i++)
+    {
+        arr_ptr[i] = arr_mem + (i * j_max);
+
+        for (j = 0; j < j_max; j++)
+        {
+            double_obj = PyList_GetItem(py_arr, i*j_max+j);
+            arr_mem[(i*j_max) + j] = PyFloat_AsDouble(double_obj);
+        }
+    }
+}
+
+/**
  * Executes the kmeans algorithm requested in the final exercise
  *  (Python section).
  * 
@@ -61,29 +85,11 @@ static PyObject* fit(PyObject* self, PyObject* args)
         return Py_BuildValue("");
 	}
 
-    // Parsing initialized centroids...
-    for (i = 0; i < k; i++)
-    {
-        centroids_arr_ptr[i] = centroids_arr_mem + (i * dim);
-
-        for (j = 0; j < dim; j++)
-        {
-            float_obj = PyList_GetItem(centroids_list_obj, i*dim+j);
-            centroids_arr_mem[(i*dim) + j] = PyFloat_AsDouble(float_obj);
-        }
-    }
+    /* Parsing initialized centroids... */
+    py_arr_to_mtx(centroids_list_obj, centroids_arr_ptr, centroids_arr_mem, k, dim);
 
     // Parsing datapoints...
-    for (i = 0; i <number_of_datapoints; i++)
-    {
-        datapoints_arr_ptr[i] = datapoints_arr_mem + (i * dim);
-
-        for (j = 0; j < dim; j++)
-        {
-            float_obj = PyList_GetItem(points_list_obj, i*dim+j);
-            datapoints_arr_mem[(i*dim) + j] = PyFloat_AsDouble(float_obj);
-        }
-    }
+    py_arr_to_mtx(points_list_obj, datapoints_arr_ptr, datapoints_arr_mem, number_of_datapoints, dim);
 
     /* THE KMEANS PROCEDURE CALL */
 	status = kmeans(
@@ -105,7 +111,8 @@ static PyObject* fit(PyObject* self, PyObject* args)
 }
 
 /**
- * Executes an spkmeans algorithm goal according to a received 'goal' parameter.
+ * Executes an spkmeans algorithm goal according to a received 'goal' 
+ * parameter.
  * 
  * Should receive from python:
  * - dim (int), The dimension number of each point in the dataframe.
@@ -146,7 +153,7 @@ static PyObject* perform_subtask(PyObject* self, PyObject* args)
 
     number_of_datapoints = PyList_Size(points_list_obj) / dim;
 
-    // Allocating according to the received length
+    /* Allocating according to the received length */
     datapoints_arr_ptr = calloc(number_of_datapoints, sizeof(F_TYPE*));
     datapoints_arr_mem = calloc(number_of_datapoints * dim, sizeof(F_TYPE));
     if ((datapoints_arr_ptr == NULL) || (datapoints_arr_mem == NULL))
@@ -156,17 +163,8 @@ static PyObject* perform_subtask(PyObject* self, PyObject* args)
         return return_value;
     }
 
-    // Parsing datapoints...
-    for (i = 0; i <number_of_datapoints; i++)
-    {
-        datapoints_arr_ptr[i] = datapoints_arr_mem + (i * dim);
-
-        for (j = 0; j < dim; j++)
-        {
-            float_obj = PyList_GetItem(points_list_obj, i*dim+j);
-            datapoints_arr_mem[(i*dim) + j] = PyFloat_AsDouble(float_obj);
-        }
-    }
+    /* Parsing datapoints... */
+    py_arr_to_mtx(points_list_obj, datapoints_arr_ptr, datapoints_arr_mem, number_of_datapoints, dim);
 
     /* Allocate memory */
 	o_mtx = calloc(number_of_datapoints, sizeof(F_TYPE*));
@@ -196,12 +194,15 @@ static PyObject* perform_subtask(PyObject* self, PyObject* args)
 
 	/* Print output matrix (and if needed - eigenvalues) */
 	if (SPK != goal) {
-		if (JACOBI == goal) print_matrix(&eigenvalues, 1, number_of_datapoints);
-		print_matrix(o_mtx, number_of_datapoints, number_of_datapoints);
+		if (JACOBI == goal) 
+            print_matrix(&eigenvalues, 1, number_of_datapoints);
+		
+        print_matrix(o_mtx, number_of_datapoints, number_of_datapoints);
 	}
     else /* Returning the received value to the python module */
     {
-        Py_DECREF(return_value); // Because we've already assigned a py object...
+        Py_DECREF(return_value); /* Because we've already assigned a 
+                                    py object... */
         return_value = PyList_New(k * number_of_datapoints);
 
     /* If NULL */
@@ -239,7 +240,8 @@ finish:
 
 static PyMethodDef methods[] = {
         {"perform_subtask", perform_subtask, METH_VARARGS,
-        "Executes a sub-spkmeans function based on a received 'goal' parameter"},
+        "Executes a sub-spkmeans function based on a received 'goal' 
+        parameter"},
         {"fit", fit, METH_VARARGS,
         "Executes kmeans algorithm"},
         {NULL, NULL, 0, NULL}
