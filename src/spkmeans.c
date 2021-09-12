@@ -320,62 +320,88 @@ double calc_off(F_TYPE** mtx, size_t mtx_columns_num)
 	return off;
 }
 
-/*
-	@ details Calculates the next A' and P, given the current A.
- */ 
-enum status calc_jacobi_iteration(
-	F_TYPE** io_mtx_A, int dp_num,
-	F_TYPE** o_mtx_P)
-{	
+/* 	
+	input: * mtx, nXn matrix
+		   * n parameter
+
+	output:* i,j - indices of the largest abs value
+		   * max - the largest value itself
+*/
+
+void find_largest_abs_value_in_mtx(
+	F_TYPE** mtx, int n,
+	int* i, int* j, F_TYPE* max)
+{
 	int k = 0;
 	int l = 0;
-	int i = 0;
-	int j = 1;
-	F_TYPE max = 0;
 
-	F_TYPE theta = 0, t = 0, c = 0, s = 0, temp1 = 0, temp2 = 0;
-
-	/* Finding the indices of the largest absolute value in A */
-	for (k = 0; k < dp_num; k++)
+	for (k = 0; k < n; k++)
 	{	
-		for (l = k+1; l < dp_num; l++)
+		for (l = k+1; l < n; l++)
 		{
-			if (F_TYPE_ABS(io_mtx_A[k][l]) > max)
+			if (F_TYPE_ABS(mtx[k][l]) > *max)
 			{
-				i = k;
-				j = l;
-				max = F_TYPE_ABS(io_mtx_A[k][l]);
+				*i = k;
+				*j = l;
+				*max = F_TYPE_ABS(mtx[k][l]);
 			}
 		}
 	}
 
-
-	theta = (io_mtx_A[j][j] - io_mtx_A[i][i]) / (2*io_mtx_A[i][j]);
-
-	if (theta >= 0)
-		t = 1 / (F_TYPE_ABS(theta) + sqrt(pow(theta, 2) + 1));
-	else
-		t = -1 / (F_TYPE_ABS(theta) + sqrt(pow(theta, 2) + 1));
-
-	c = 1 / sqrt(pow(t, 2) + 1);
-
-	if ((EDOM == errno) || (ERANGE == errno))
-		return Error;
-
-	s = t*c;
+}
 
 
-	for (k = 0; k < dp_num; k++)
-		o_mtx_P[k][k] = 1;
+/* 	
+	input: * mtx, nXn matrix
+		   * n parameter
 
-	o_mtx_P[i][i] = c;
-	o_mtx_P[j][j] = c;
-	o_mtx_P[i][j] = s;
-	o_mtx_P[j][i] = -s;
-	
-	if (max != 0)
-	{
-		/* Performing step as described in sub-paragraph 6 */
+	output:* i,j - indices of the largest abs value
+		   * max - the largest value itself
+*/
+
+void find_largest_abs_value_in_mtx(
+	F_TYPE** mtx, int n,
+	int* i, int* j, F_TYPE* max)
+{
+	int k = 0;
+	int l = 0;
+
+	for (k = 0; k < n; k++)
+	{	
+		for (l = k+1; l < n; l++)
+		{
+			if (F_TYPE_ABS(mtx[k][l]) > *max)
+			{
+				*i = k;
+				*j = l;
+				*max = F_TYPE_ABS(mtx[k][l]);
+			}
+		}
+	}
+
+}
+
+/**
+* Given an A matrix, calculates the A' matrix as described in the
+* specifications document.
+* @param io_mtx_A: The input A matrix and the output A' matrix.
+* @param dp_num: number of datapoints.
+* @param i: The i index of A_ij (max abs value in A)
+* @param j: The j index of A_ij (max abs value in A)
+* @param c: The calculated c value (as described in the spec doc)
+* @param s: The calculated s value (as described in the spec doc)
+*
+* Returns Success when no error occured, else, Error.
+*/
+enum status calc_jacobi_A_tag(
+	F_TYPE** io_mtx_A, int dp_num, int i, int j,
+	int c, int s)
+{
+	int k = 0;
+	F_TYPE temp1 = 0;
+	F_TYPE temp2 = 0;
+
+	/* Performing step as described in sub-paragraph 6 */
 		for (k = 0; k < dp_num; k++)
 		{
 			if (k != i && k != j)
@@ -408,7 +434,52 @@ enum status calc_jacobi_iteration(
 
 
 		return Success;
-	}
+}
+
+
+/*
+	@ details Calculates the next A' and P, given the current A.
+ */ 
+enum status calc_jacobi_iteration(
+	F_TYPE** io_mtx_A, int dp_num,
+	F_TYPE** o_mtx_P)
+{	
+	int k = 0;
+	int i = 0;
+	int j = 1;
+	F_TYPE max = 0;
+
+	F_TYPE theta = 0, t = 0, c = 0, s = 0, temp1 = 0, temp2 = 0;
+
+	/* Finding the indices of the largest absolute value in A */
+	find_largest_abs_value_in_mtx(io_mtx_A, dp_num, &i, &j, &max);
+
+
+	theta = (io_mtx_A[j][j] - io_mtx_A[i][i]) / (2*io_mtx_A[i][j]);
+
+	if (theta >= 0)
+		t = 1 / (F_TYPE_ABS(theta) + sqrt(pow(theta, 2) + 1));
+	else
+		t = -1 / (F_TYPE_ABS(theta) + sqrt(pow(theta, 2) + 1));
+
+	c = 1 / sqrt(pow(t, 2) + 1);
+
+	if ((EDOM == errno) || (ERANGE == errno))
+		return Error;
+
+	s = t*c;
+
+
+	for (k = 0; k < dp_num; k++)
+		o_mtx_P[k][k] = 1;
+
+	o_mtx_P[i][i] = c;
+	o_mtx_P[j][j] = c;
+	o_mtx_P[i][j] = s;
+	o_mtx_P[j][i] = -s;
+	
+	if (max != 0)
+		return calc_jacobi_A_tag(io_mtx_A, dp_num, i, j, c, s);
 
 	return Finish;
 }
@@ -541,7 +612,15 @@ int f_and_idx_compare (const void* a, const void* b) {
 }
 
 
-/* the eigengap heuristic */
+/* 	
+	The eigengap heuristic
+	
+	input: * eigenvalues, n f_and_idx vector
+		   * n parameter
+
+	output: o_k - the estimated k value.
+
+*/
 enum status eigengap_heuristic(
 	f_and_idx* eigenvalues, int n,
 	int* o_k) /* output - estimated k */
@@ -836,40 +915,6 @@ enum status spkmeans_preperations(
 		return status;
 	}
 
-	/* for debug - print jacobi output when goal == SPK */
-	/*--------------------------------------------------*/
-	#ifdef DEBUG
-
-		for (i = 0; i < dp_num; ++i)
-			o_eigenvalues[i] = eigenvalues[i].f;
-		printf("\neigenvalues\n");
-		print_matrix(&o_eigenvalues, 1, dp_num);
-
-		/* transpose eigenvectors matrix for printing */
-		/* use jacobi_input_mtx_mem just because it's an 
-			existing pointer that is no longer used */
-		eigenvectors_transposed = calloc(sizeof(F_TYPE*), dp_num);
-		jacobi_input_mtx_mem = calloc(sizeof(F_TYPE), dp_num*dp_num);
-		if (NULL == eigenvectors_transposed) {
-			free(eigenvectors); free(eigenvectors_mem);
-			free(eigenvalues);
-			return Error;
-		}
-
-		for (i = 0; i < dp_num; ++i)
-			eigenvectors_transposed[i] = jacobi_input_mtx_mem + (i*dp_num);
-
-		transpose_matrix(
-			eigenvectors, eigenvectors_transposed, dp_num, dp_num);
-
-		printf("\neigenvectors\n");
-		print_matrix(eigenvectors_transposed, dp_num, dp_num);
-		printf("\n");
-
-		free(eigenvectors_transposed); free(jacobi_input_mtx_mem);
-
-	#endif		    /* END DEBUG CODE */
-	/*--------------------------------------------------*/
 
 	/*=========================================*/
 	/* preparing matrix for kmeans (steps 4-5) */
@@ -1280,10 +1325,6 @@ int main(int argc, char const *argv[])
 
 			}
 			if (curr_dim != 0) {
-				#ifdef DEBUG
-				printf("file terminated in the middle of a vector \
-					(dp num %d, in idx %d)\n", dp_num, curr_dim);
-				#endif
 				PRINT_INVALID_INPUT();
 				goto on_input_error;
 			}
@@ -1316,11 +1357,7 @@ int main(int argc, char const *argv[])
 		/* add the scanned F_TYPE to the current vector */
 		curr_dim++;
 		if (curr_dim > dim) {
-			#ifdef DEBUG
-			printf("\
-				bad input vector length: first vector is of length %d while \
-				%d'th vector is of length %d\n", dim, (dp_num+1), curr_dim);
-			#endif
+			DEBUG_PRINT("bad input vector length");
 			PRINT_INVALID_INPUT();
 			goto on_input_error;
 		}
@@ -1331,12 +1368,6 @@ int main(int argc, char const *argv[])
 			matrix and memcpy the vector to the matrix */
 		if (scan_status == 1) {
 			if (curr_dim != dim) {
-				# ifdef DEBUG
-				printf("bad input vector length: \
-					first vector is of length %d \
-					while %d'th vector is of length %d\n", 
-					dim, (dp_num+1), curr_dim);
-				#endif
 				PRINT_INVALID_INPUT();
 				goto on_input_error;
 			}
@@ -1433,13 +1464,6 @@ int main(int argc, char const *argv[])
 		return status;
 	}
 
-	/* debug print - T matrix */
-	DEBUG_PRINT("T matrix\n");
-	#ifdef DEBUG
-	print_matrix(o_mtx, n, m);
-	#endif
-	DEBUG_PRINT("\n");
-
 
 	/*==================*/
 	/* kmeans algorithm */
@@ -1487,9 +1511,6 @@ int main(int argc, char const *argv[])
 	else
 		PRINT_ERROR();
 
-	#ifdef DEBUG
-		printf("status is: %d", status);
-	#endif
 
 	free(o_mtx);
 	free(o_mtx_mem);
