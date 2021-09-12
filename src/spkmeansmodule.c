@@ -86,10 +86,12 @@ static PyObject* fit(PyObject* self, PyObject* args)
 	}
 
     /* Parsing initialized centroids... */
-    py_arr_to_mtx(centroids_list_obj, centroids_arr_ptr, centroids_arr_mem, k, dim);
+    py_arr_to_mtx(centroids_list_obj, centroids_arr_ptr, centroids_arr_mem,
+                k, dim);
 
     // Parsing datapoints...
-    py_arr_to_mtx(points_list_obj, datapoints_arr_ptr, datapoints_arr_mem, number_of_datapoints, dim);
+    py_arr_to_mtx(points_list_obj, datapoints_arr_ptr, datapoints_arr_mem, 
+                number_of_datapoints, dim);
 
     /* THE KMEANS PROCEDURE CALL */
 	status = kmeans(
@@ -164,7 +166,8 @@ static PyObject* perform_subtask(PyObject* self, PyObject* args)
     }
 
     /* Parsing datapoints... */
-    py_arr_to_mtx(points_list_obj, datapoints_arr_ptr, datapoints_arr_mem, number_of_datapoints, dim);
+    py_arr_to_mtx(points_list_obj, datapoints_arr_ptr, datapoints_arr_mem, 
+                number_of_datapoints, dim);
 
     /* Allocate memory */
 	o_mtx = calloc(number_of_datapoints, sizeof(F_TYPE*));
