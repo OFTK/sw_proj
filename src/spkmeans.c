@@ -297,8 +297,10 @@ int assign_to_cluster(
 }
 
 /*
-	@details Calculates the (Frobenius Norm(mtx))^2 - sum((diagonal values)^2), 
-			  which is called 'off(mtx)^2' of mtx in the specification document.
+	@details Calculates 
+			 (Frobenius Norm(mtx))^2 - sum((diagonal values)^2), 
+			  which is called 'off(mtx)^2' of mtx 
+			  in the specification document.
   	returns -1 on error
 */
 double calc_off(F_TYPE** mtx, size_t mtx_columns_num)
@@ -347,9 +349,6 @@ enum status calc_jacobi_iteration(
 		}
 	}
 
-#ifdef DEBUG_JACOBI
-	printf("Found max, A[%d][%d] = %f\n",i,j,max);
-#endif
 
 	theta = (io_mtx_A[j][j] - io_mtx_A[i][i]) / (2*io_mtx_A[i][j]);
 
@@ -365,9 +364,6 @@ enum status calc_jacobi_iteration(
 
 	s = t*c;
 
-#ifdef DEBUG_JACOBI
-	printf("Theta: %f\n t: %f\n c: %f\n s: %f\n",theta, t, c, s);
-#endif
 
 	for (k = 0; k < dp_num; k++)
 		o_mtx_P[k][k] = 1;
@@ -501,19 +497,9 @@ enum status find_eigenvalues_jacobi(
 
 		/* Calculating the next A and P matrices */
 		status = calc_jacobi_iteration(io_mtx_A, dp_num, mtx_P);
-#ifdef DEBUG_JACOBI
-		printf("A':\n");
-		print_matrix(io_mtx_A, dp_num, dp_num);
-		printf("mtx_P:\n");
-		print_matrix(mtx_P, dp_num, dp_num);
-#endif
 		/* Calculating the next V matrix */
 		memcpy(mtx_V_temp_mem, o_mtx_V_mem, dp_num*dp_num*sizeof(F_TYPE));
 		mul_square_matrices(mtx_V_temp, mtx_P, dp_num, o_mtx_V);
-#ifdef DEBUG_JACOBI
-		printf("Vectors:\n");
-		print_matrix(o_mtx_V, dp_num, dp_num);
-#endif
 
 		/* Calculating the function 'off^2' of the new matrix */
 		prev_off = curr_off;
@@ -526,19 +512,6 @@ enum status find_eigenvalues_jacobi(
 		}
 	}
 
-#ifdef DEBUG_JACOBI
-	printf("Vectors:\n");
-	print_matrix(o_mtx_V, dp_num, dp_num);
-	printf("\nValues:\n");
-	for(i = 0; i < dp_num - 1; i++)
-	{
-		printf(F_TYPE_OUTPUT_FORMAT_SPEC, io_mtx_A[i][i]);
-		printf(", ");
-	}
-	printf(F_TYPE_OUTPUT_FORMAT_SPEC, io_mtx_A[i][i]);
-
-	printf("\n");
-#endif	
 
 	/* free locals */
 	free(mtx_P);
@@ -1080,13 +1053,10 @@ enum status kmeans(
 		/* the other condition to finish the run appears later */
 		if ((max_iter > 0) && (iter_num >= max_iter)) break;
 
-
 		/* initialize centroids ref count and sum */
 		/*----------------------------------------*/		
 		memset(centrds_ref_cnt, 0, sizeof(int)*k);
-		for (i = 0; i < k; ++i)
-			memset(centrds_sum[i], 0, sizeof(F_TYPE)*dim);
-
+		memset(centrds_sum_mem, 0, sizeof(F_TYPE)*k*dim);
 
 		/* assign each datapoint to the closest centroid */
 		/*-----------------------------------------------*/		
@@ -1094,10 +1064,12 @@ enum status kmeans(
 		{
 			curr_assigned_clstr = 
 				assign_to_cluster(input_dps[i], centroids, dim, k);
+
 			if ((-1) == curr_assigned_clstr) {
 				status = Error;
 				goto finish_kmeans;
 			}
+
 			output_cluster_assign[i] = curr_assigned_clstr;
 
 			centrds_ref_cnt[curr_assigned_clstr]++;
@@ -1155,7 +1127,8 @@ void print_matrix(F_TYPE** matrix, int n, int m)
 	{
 		for (j = 0; j < m; ++j)
 		{
-			/* Making sure values between 0 and -0.00005 will be printed as 0 */
+			/* 	Making sure values between 0 
+				and -0.00005 will be printed as 0 */
 			if ((matrix[i][j] < 0) && (matrix[i][j] > MIN_ZERO_VAL))
 				printf(F_TYPE_OUTPUT_FORMAT_SPEC_ZERO);
 			else
@@ -1185,7 +1158,7 @@ int scan_next_val(F_TYPE* x, FILE* finput) {
 		(44 == c)) 
 		return 0;
 
-	/* last number in line */ /* happens undere these following 3 conditions */
+	/* last number in line - happens undere these following 3 conditions */
 	if ((1 == value_exists) && 
 		(1 == next_char) && 
 		(10 == c)) /* line ends with LF */
