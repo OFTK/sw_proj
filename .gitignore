@@ -146,3 +146,6 @@ jacobTester_result.csv
 my_output.txt
 spkTester_result.csv
 wamTester_result.csv
+
+outputs_u_t/*
+
