@@ -60,7 +60,7 @@ static PyObject* fit(PyObject* self, PyObject* args)
         free(centroids_arr_mem); free(centroids_arr_ptr);
         free(output_cluster_assign);
 		PRINT_ERROR();
-        Py_BuildValue("");
+        return Py_BuildValue("");
 	}
 
 #ifdef DEBUG
@@ -121,7 +121,7 @@ static PyObject* fit(PyObject* self, PyObject* args)
     free(datapoints_arr_ptr);
     free(datapoints_arr_mem);
     free(output_cluster_assign);
-    Py_BuildValue("");
+    return Py_BuildValue("");
 }
 
 static PyObject* perform_subtask(PyObject* self, PyObject* args)

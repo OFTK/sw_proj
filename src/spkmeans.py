@@ -49,6 +49,8 @@ def kmeans_pp(df, k):
     return [int(x) for x in centroids.index]
 
 def main():
+    
+    np.random.seed(0)
 
     # Argument parsing
     parser = argparse.ArgumentParser(description='process spkmeans inputs.')
@@ -83,18 +85,20 @@ def main():
         # Shaping into an actual df
         df = pd.DataFrame(np.array(goal_return_value)
                                     .reshape(num_of_datapoints, k))
-
+        
         # Run the intial centroids chioce algorithm
         initial_centroids_index = kmeans_pp(df, k)
+
+        # print centroids correctly
+        for i in range(len(initial_centroids_index)-1):
+            print(initial_centroids_index[i], end=",")
+        print(initial_centroids_index[len(initial_centroids_index)-1])
 
         goal_return_value = spksp.fit(
         k, k,
         df.loc[initial_centroids_index].to_numpy().reshape(1, (k*k)).tolist()[0],
         df.to_numpy().reshape(1, (k*num_of_datapoints)).tolist()[0]
         )
-
-    # print_according_to_goal(goal_return_value, dim, goal)
-    # TODO: No need, printing will be performed on C
 
 if __name__ == "__main__":
     main()
