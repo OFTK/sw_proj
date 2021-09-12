@@ -13,13 +13,18 @@ class Goal(IntEnum):
     lnorm = 3
     jacobi = 4
 
-    # In order to avoid raising a 'KeyError' while actually getting a 'ValueError'
+    # In order to avoid raising a 'KeyError' while actually getting a 
+    # 'ValueError'
     @staticmethod
     def from_string(s):
         try:
             return Goal[s]
         except KeyError:
             raise ValueError()
+    
+    # In order to print each option's name correctly in the help menu
+    def __str__(self):
+        return self.name
 
 def kmeans_pp(df, k):
     z = 1
@@ -50,6 +55,7 @@ def kmeans_pp(df, k):
 
 def main():
     
+    # Reseting the random seed
     np.random.seed(0)
 
     # Argument parsing
@@ -73,12 +79,15 @@ def main():
 
     assert (k < len(df)), "An Error Has Occured"
 
+    # Performing the received subtask
     goal_return_value = spksp.perform_subtask(
         dim, k, goal,
         df.to_numpy().reshape(1, (num_of_datapoints*dim)).tolist()[0])
 
-    if goal == Goal.spk: # It means that we need to perform the spkmeans algorithm
-
+    if goal == Goal.spk: # It means that we need to perform 
+                         # the rest of the spkmeans algorithm
+        
+        # If we received k = 0, we need to use the hueristic
         if k == 0:
             k = int(len(goal_return_value) / num_of_datapoints)
 
@@ -93,7 +102,8 @@ def main():
         for i in range(len(initial_centroids_index)-1):
             print(initial_centroids_index[i], end=",")
         print(initial_centroids_index[len(initial_centroids_index)-1])
-
+        
+        # Performing kmeans
         goal_return_value = spksp.fit(
         k, k,
         df.loc[initial_centroids_index].to_numpy().reshape(1, (k*k)).tolist()[0],

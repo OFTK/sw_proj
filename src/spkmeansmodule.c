@@ -4,6 +4,18 @@
 
 const static int MAX_ITER = 300;
 
+/**
+ * Executes the kmeans algorithm requested in the final exercise
+ *  (Python section).
+ * 
+ * Should receive from python:
+ * - dim (int), The dimension number of each point in the dataframe.
+ * - k (int), The number of centroids received.
+ * - centroids_list_obj (arr of type double), The calculated initial centroids.
+ * - points_list_obj (arr of type double), The received dataframe (points).
+ * 
+ * Returns nothing, prints the centroids found.
+ */
 static PyObject* fit(PyObject* self, PyObject* args)
 {
     int number_of_datapoints = 0;
@@ -24,28 +36,14 @@ static PyObject* fit(PyObject* self, PyObject* args)
 
     enum status status;
 
-#ifdef DEBUG
-    printf("Got to here! In fit\n");
-#endif
-
-    if (!PyArg_ParseTuple(args, "iiOO", &dim, &k, &centroids_list_obj, &points_list_obj))
+    if (!PyArg_ParseTuple(args, "iiOO", &dim, &k, &centroids_list_obj, 
+                &points_list_obj))
     {
         PRINT_ERROR();
         return Py_BuildValue("");
     }
 
-#ifdef DEBUG
-    printf("Passed parseargs!\n");
-
-    printf("d:%d\n", dim);
-    printf("k:%d\n", k);
-#endif
-
     number_of_datapoints = PyList_Size(points_list_obj) / dim;
-
-#ifdef DEBUG
-    printf("n:%d\n", number_of_datapoints);
-#endif
 
     // Allocating according to the received length
     centroids_arr_ptr = calloc(sizeof(F_TYPE*), k);
@@ -63,10 +61,6 @@ static PyObject* fit(PyObject* self, PyObject* args)
         return Py_BuildValue("");
 	}
 
-#ifdef DEBUG
-    printf("Start parsing centroids!\n");
-#endif
-
     // Parsing initialized centroids...
     for (i = 0; i < k; i++)
     {
@@ -76,15 +70,8 @@ static PyObject* fit(PyObject* self, PyObject* args)
         {
             float_obj = PyList_GetItem(centroids_list_obj, i*dim+j);
             centroids_arr_mem[(i*dim) + j] = PyFloat_AsDouble(float_obj);
-#ifdef DEBUG
-            printf("centroid: %f\n", centroids_arr_mem[(i*dim) + j]);
-#endif
         }
     }
-
-#ifdef DEBUG
-    printf("Start parsing dps!\n");
-#endif
 
     // Parsing datapoints...
     for (i = 0; i <number_of_datapoints; i++)
@@ -95,9 +82,6 @@ static PyObject* fit(PyObject* self, PyObject* args)
         {
             float_obj = PyList_GetItem(points_list_obj, i*dim+j);
             datapoints_arr_mem[(i*dim) + j] = PyFloat_AsDouble(float_obj);
-#ifdef DEBUG
-            printf("dp: %f\n", datapoints_arr_mem[(i*dim) + j]);
-#endif
         }
     }
 
@@ -112,10 +96,6 @@ static PyObject* fit(PyObject* self, PyObject* args)
 	else
 		PRINT_ERROR();
 
-#ifdef DEBUG
-    printf("Finished! :D\n");
-#endif
-
     free(centroids_arr_ptr);
     free(centroids_arr_mem);
     free(datapoints_arr_ptr);
@@ -124,6 +104,21 @@ static PyObject* fit(PyObject* self, PyObject* args)
     return Py_BuildValue("");
 }
 
+/**
+ * Executes an spkmeans algorithm goal according to a received 'goal' parameter.
+ * 
+ * Should receive from python:
+ * - dim (int), The dimension number of each point in the dataframe.
+ * - k (int), The number of centroids received.
+ * - goal (int), The requested goal to execute [spk, wam, ddg, lnorm, jacobi].
+ * - points_list_obj (arr of type double), The received dataframe (points).
+ * 
+ * Returns according to the received goal.
+ *  If goal equals spk, returns the calculated T matrix as
+ *  described in the specification document. 
+ *  Otherwise, returns nothing and prints according to the goal's
+ *  request.
+ */
 static PyObject* perform_subtask(PyObject* self, PyObject* args)
 {
     int number_of_datapoints = 0;
@@ -133,8 +128,8 @@ static PyObject* perform_subtask(PyObject* self, PyObject* args)
 
     PyObject* points_list_obj = NULL;
     PyObject* float_obj = NULL;
-    PyObject* return_value = PyList_New(0);
     PyObject* num = NULL;
+    PyObject* return_value = PyList_New(0);
 
     F_TYPE** datapoints_arr_ptr = NULL;
     F_TYPE* datapoints_arr_mem = NULL;
@@ -146,26 +141,10 @@ static PyObject* perform_subtask(PyObject* self, PyObject* args)
 
     enum status status;
 
-#ifdef DEBUG
-    printf("Got to here! in subtask\n");
-#endif
-
     if (!PyArg_ParseTuple(args, "iiiO", &dim, &k, &goal, &points_list_obj))
         return return_value;
 
-#ifdef DEBUG
-    printf("Passed parseargs!\n");
-
-    printf("dim:%d\n", dim);
-    printf("k:%d\n", k);
-    printf("goal:%d\n", goal);
-#endif
-
     number_of_datapoints = PyList_Size(points_list_obj) / dim;
-
-#ifdef DEBUG
-    printf("n:%d\n", number_of_datapoints);
-#endif
 
     // Allocating according to the received length
     datapoints_arr_ptr = calloc(number_of_datapoints, sizeof(F_TYPE*));
@@ -176,10 +155,6 @@ static PyObject* perform_subtask(PyObject* self, PyObject* args)
         free(datapoints_arr_ptr); free(datapoints_arr_mem);
         return return_value;
     }
-
-#ifdef DEBUG
-    printf("Start parsing dps!\n");
-#endif
 
     // Parsing datapoints...
     for (i = 0; i <number_of_datapoints; i++)
@@ -193,14 +168,10 @@ static PyObject* perform_subtask(PyObject* self, PyObject* args)
         }
     }
 
-    #ifdef DEBUG
-            printf("Parsed dps:\n");
-            print_matrix(datapoints_arr_ptr, number_of_datapoints, dim);
-    #endif
-
     /* Allocate memory */
 	o_mtx = calloc(number_of_datapoints, sizeof(F_TYPE*));
-	o_mtx_mem = calloc(number_of_datapoints*number_of_datapoints, sizeof(F_TYPE));
+	o_mtx_mem = calloc(number_of_datapoints*number_of_datapoints, 
+            sizeof(F_TYPE));
     eigenvalues = calloc(number_of_datapoints, sizeof(F_TYPE));
 	if ((NULL == o_mtx) || (NULL == o_mtx_mem) || (NULL == eigenvalues)) {
 		PRINT_ERROR();
@@ -223,20 +194,17 @@ static PyObject* perform_subtask(PyObject* self, PyObject* args)
         goto finish;
 	}
 
-    #ifdef DEBUG
-        printf("Finished prep!\n");
-    #endif
-
 	/* Print output matrix (and if needed - eigenvalues) */
 	if (SPK != goal) {
 		if (JACOBI == goal) print_matrix(&eigenvalues, 1, number_of_datapoints);
 		print_matrix(o_mtx, number_of_datapoints, number_of_datapoints);
 	}
     else /* Returning the received value to the python module */
-    {   
+    {
         Py_DECREF(return_value); // Because we've already assigned a py object...
         return_value = PyList_New(k * number_of_datapoints);
 
+    /* If NULL */
     if (!return_value)
     {
         Py_DECREF(return_value);
@@ -244,7 +212,7 @@ static PyObject* perform_subtask(PyObject* self, PyObject* args)
         goto finish;
     }
 
-    for (i = 0; i < k * number_of_datapoints; i++) 
+    for (i = 0; i < k * number_of_datapoints; i++)
     {
         num = PyFloat_FromDouble(o_mtx_mem[i]);
 
@@ -273,7 +241,7 @@ static PyMethodDef methods[] = {
         {"perform_subtask", perform_subtask, METH_VARARGS,
         "Executes a sub-spkmeans function based on a received 'goal' parameter"},
         {"fit", fit, METH_VARARGS,
-        "Executes the spkmeans algorithm given"},
+        "Executes kmeans algorithm"},
         {NULL, NULL, 0, NULL}
 };
 

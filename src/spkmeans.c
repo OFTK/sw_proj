@@ -1026,15 +1026,14 @@ enum status kmeans(
 	last_iter_centrds_mem = calloc(sizeof(F_TYPE), k*dim);
 	if (NULL == last_iter_centrds_mem)
 	{
-		status = Error;
-		goto finish_kmeans;
+		return Error;
 	}
 
 	last_iter_centrds = calloc( sizeof(F_TYPE*) , k);
 	if (NULL == last_iter_centrds)
 	{
-		status = Error;
-		goto finish_kmeans;
+		free(last_iter_centrds_mem);
+		return Error;
 	}
 
 	for (i = 0; i < k; ++i)
@@ -1044,15 +1043,18 @@ enum status kmeans(
 	centrds_sum_mem = calloc(sizeof(F_TYPE), k*dim);
 	if (NULL == centrds_sum_mem)
 	{
-		status = Error;
-		goto finish_kmeans;
+		free(last_iter_centrds);
+		free(last_iter_centrds_mem);
+		return Error;
 	}
 
 	centrds_sum = calloc(sizeof(F_TYPE*), k);
 	if (NULL == centrds_sum)
 	{
-		status = Error;
-		goto finish_kmeans;
+		free(last_iter_centrds);
+		free(last_iter_centrds_mem);
+		free(centrds_sum_mem);
+		return Error;
 	}
 
 	for (i = 0; i < k; ++i)
@@ -1060,12 +1062,12 @@ enum status kmeans(
 	centrds_ref_cnt = calloc(sizeof(int), k);
 	if (NULL == centrds_ref_cnt)
 	{
-		status = Error;
-		goto finish_kmeans;
+		free(last_iter_centrds);
+		free(last_iter_centrds_mem);
+		free(centrds_sum_mem);
+		free(centrds_sum);
+		return Error;
 	}
-
-
-
 
 	/*======================*/
 	/* algorithm iterations */
@@ -1131,7 +1133,6 @@ enum status kmeans(
 				sizeof(F_TYPE)*dim);
 		iter_num++;
 	}
-
 
 	finish_kmeans:
 	free(last_iter_centrds);
