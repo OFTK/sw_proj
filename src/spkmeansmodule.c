@@ -52,7 +52,7 @@ static PyObject* fit(PyObject* self, PyObject* args)
     centroids_arr_mem = calloc(sizeof(F_TYPE), k * dim);
     datapoints_arr_ptr = calloc(sizeof(F_TYPE*), number_of_datapoints);
     datapoints_arr_mem = calloc(sizeof(F_TYPE),number_of_datapoints * dim);
-    output_cluster_assign = calloc(sizeof(int), dim);
+    output_cluster_assign = calloc(sizeof(int), number_of_datapoints);
     if (NULL == datapoints_arr_mem || NULL == datapoints_arr_ptr || 
         NULL == centroids_arr_mem || NULL == centroids_arr_ptr ||
         NULL == output_cluster_assign) {
@@ -103,7 +103,7 @@ static PyObject* fit(PyObject* self, PyObject* args)
 
     /* THE KMEANS PROCEDURE CALL */
 	status = kmeans(
-		datapoints_arr_ptr, dim, k, 
+		datapoints_arr_ptr, number_of_datapoints, dim, 
 		centroids_arr_ptr, output_cluster_assign,
 		k, MAX_ITER);
 
