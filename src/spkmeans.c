@@ -358,12 +358,12 @@ enum status calc_jacobi_iteration(
 	else
 		t = -1 / (F_TYPE_ABS(theta) + sqrt(pow(theta, 2) + 1));
 
-		c = 1 / sqrt(pow(t, 2) + 1);
+	c = 1 / sqrt(pow(t, 2) + 1);
 
-		if ((EDOM == errno) || (ERANGE == errno))
-			return Error;
+	if ((EDOM == errno) || (ERANGE == errno))
+		return Error;
 
-		s = t*c;
+	s = t*c;
 
 #ifdef DEBUG_JACOBI
 	printf("Theta: %f\n t: %f\n c: %f\n s: %f\n",theta, t, c, s);
@@ -1144,6 +1144,7 @@ enum status kmeans(
 }
 
 
+/* printing matrices according to instructions */
 void print_matrix(F_TYPE** matrix, int n, int m)
 {
 	int i = 0;
@@ -1154,7 +1155,7 @@ void print_matrix(F_TYPE** matrix, int n, int m)
 		for (j = 0; j < m; ++j)
 		{
 			/* Making sure values between 0 and -0.00005 will be printed as 0 */
-			if (matrix[i][j] < 0 && matrix[i][j] > MIN_ZERO_VAL)
+			if ((matrix[i][j] < 0) && (matrix[i][j] > MIN_ZERO_VAL))
 				printf(F_TYPE_OUTPUT_FORMAT_SPEC_ZERO);
 			else
 				printf(F_TYPE_OUTPUT_FORMAT_SPEC, matrix[i][j]);
@@ -1176,20 +1177,40 @@ int scan_next_val(F_TYPE* x, FILE* finput) {
 	char c = 0;
 	int next_char = fscanf(finput, "%c", &c);
 
+
+	/* num with a comma */
 	if ((1 == value_exists) && 
 		(1 == next_char) && 
-		(44 == c)) /* num with a comma */
+		(44 == c)) 
 		return 0;
 
+	/* last number in line */ /* happens undere these following 3 conditions */
 	if ((1 == value_exists) && 
 		(1 == next_char) && 
-		(10 == c)) /* num with LF */
+		(10 == c)) /* line ends with LF */
 		return 1;
 
-	if (EOF == value_exists) /* EOF */
+	if ((1 == value_exists) && 
+		(1 == next_char) && 
+		(13 == c)) /* line ends with CRLF */
+		{
+			int next_char = fscanf(finput, "%c", &c);
+			if ((1 == next_char) && (10 == c))
+				return 1;
+			else
+				return (-1);
+		}
+
+	if ((1 == value_exists) && 
+		((-1) == next_char) ) /* last num of file,
+							     isn't followed by lf or crlf */
+		return 1;
+
+	/* EOF */
+	if (EOF == value_exists) 
 		return 2;
 
-	return -1;
+	return (-1);
 }
 
 int main(int argc, char const *argv[])

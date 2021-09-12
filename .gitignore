@@ -134,3 +134,15 @@ dmypy.json
 
 # Compiled file
 spkmeans
+inputs/*
+spkinputs/*
+Jacobi_tests/*
+jacobiTester.py
+spkTester.py
+Tester.py
+LnormTester_result.csv
+ddgTester_result.csv
+jacobTester_result.csv
+my_output.txt
+spkTester_result.csv
+wamTester_result.csv
