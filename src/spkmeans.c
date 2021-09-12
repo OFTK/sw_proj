@@ -1066,8 +1066,12 @@ enum status kmeans(
 				assign_to_cluster(input_dps[i], centroids, dim, k);
 
 			if ((-1) == curr_assigned_clstr) {
-				status = Error;
-				goto finish_kmeans;
+				free(last_iter_centrds);
+				free(last_iter_centrds_mem);
+				free(centrds_sum_mem);
+				free(centrds_sum);
+				free(centrds_ref_cnt);
+				return Error;
 			}
 
 			output_cluster_assign[i] = curr_assigned_clstr;
@@ -1106,7 +1110,6 @@ enum status kmeans(
 		iter_num++;
 	}
 
-	finish_kmeans:
 	free(last_iter_centrds);
 	free(last_iter_centrds_mem);
 	free(centrds_sum_mem);
@@ -1262,11 +1265,11 @@ int main(int argc, char const *argv[])
 	while (TRUE) {
 		scan_status = scan_next_val(&scanned_num, finput);
 
-		/*if (scan_status < 0) {
+		if (scan_status < 0) {
 			DEBUG_PRINT("bad input file format\n");
 			PRINT_INVALID_INPUT();
 			goto on_input_error;
-		}*/
+		}
 
 		/* when done reading the file */
 		if (scan_status == 2) {
