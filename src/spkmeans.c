@@ -836,40 +836,6 @@ enum status spkmeans_preperations(
 		return status;
 	}
 
-	/* for debug - print jacobi output when goal == SPK */
-	/*--------------------------------------------------*/
-	#ifdef DEBUG
-
-		for (i = 0; i < dp_num; ++i)
-			o_eigenvalues[i] = eigenvalues[i].f;
-		printf("\neigenvalues\n");
-		print_matrix(&o_eigenvalues, 1, dp_num);
-
-		/* transpose eigenvectors matrix for printing */
-		/* use jacobi_input_mtx_mem just because it's an 
-			existing pointer that is no longer used */
-		eigenvectors_transposed = calloc(sizeof(F_TYPE*), dp_num);
-		jacobi_input_mtx_mem = calloc(sizeof(F_TYPE), dp_num*dp_num);
-		if (NULL == eigenvectors_transposed) {
-			free(eigenvectors); free(eigenvectors_mem);
-			free(eigenvalues);
-			return Error;
-		}
-
-		for (i = 0; i < dp_num; ++i)
-			eigenvectors_transposed[i] = jacobi_input_mtx_mem + (i*dp_num);
-
-		transpose_matrix(
-			eigenvectors, eigenvectors_transposed, dp_num, dp_num);
-
-		printf("\neigenvectors\n");
-		print_matrix(eigenvectors_transposed, dp_num, dp_num);
-		printf("\n");
-
-		free(eigenvectors_transposed); free(jacobi_input_mtx_mem);
-
-	#endif		    /* END DEBUG CODE */
-	/*--------------------------------------------------*/
 
 	/*=========================================*/
 	/* preparing matrix for kmeans (steps 4-5) */
@@ -1280,10 +1246,6 @@ int main(int argc, char const *argv[])
 
 			}
 			if (curr_dim != 0) {
-				#ifdef DEBUG
-				printf("file terminated in the middle of a vector \
-					(dp num %d, in idx %d)\n", dp_num, curr_dim);
-				#endif
 				PRINT_INVALID_INPUT();
 				goto on_input_error;
 			}
@@ -1316,11 +1278,6 @@ int main(int argc, char const *argv[])
 		/* add the scanned F_TYPE to the current vector */
 		curr_dim++;
 		if (curr_dim > dim) {
-			#ifdef DEBUG
-			printf("\
-				bad input vector length: first vector is of length %d while \
-				%d'th vector is of length %d\n", dim, (dp_num+1), curr_dim);
-			#endif
 			PRINT_INVALID_INPUT();
 			goto on_input_error;
 		}
@@ -1331,12 +1288,6 @@ int main(int argc, char const *argv[])
 			matrix and memcpy the vector to the matrix */
 		if (scan_status == 1) {
 			if (curr_dim != dim) {
-				# ifdef DEBUG
-				printf("bad input vector length: \
-					first vector is of length %d \
-					while %d'th vector is of length %d\n", 
-					dim, (dp_num+1), curr_dim);
-				#endif
 				PRINT_INVALID_INPUT();
 				goto on_input_error;
 			}
@@ -1433,12 +1384,6 @@ int main(int argc, char const *argv[])
 		return status;
 	}
 
-	/* debug print - T matrix */
-	DEBUG_PRINT("T matrix\n");
-	#ifdef DEBUG
-	print_matrix(o_mtx, n, m);
-	#endif
-	DEBUG_PRINT("\n");
 
 
 	/*==================*/
@@ -1487,9 +1432,6 @@ int main(int argc, char const *argv[])
 	else
 		PRINT_ERROR();
 
-	#ifdef DEBUG
-		printf("status is: %d", status);
-	#endif
 
 	free(o_mtx);
 	free(o_mtx_mem);
