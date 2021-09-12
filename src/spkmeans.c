@@ -149,7 +149,7 @@ enum status calc_weighted_adjacency_matrix(
 				wam[i][j] = exp(
 					(-0.5) * calc_l2_norm(datapoints[i], datapoints[j], m)
 				);
-				if (0 != errno) s = Error;
+				if (ERANGE == errno) s = Error;
 			}
 		}
 	}
@@ -221,11 +221,15 @@ enum status calc_normalized_graph_laplacian(
 	for (i = 0; i < n; ++i)
 		ddg_invsqrt[i][i] = pow(ddg[i][i], (-0.5));
 
-	if (0 != errno) status = Error;
+	if ((EDOM == errno) || (ERANGE == errno)) {
+		free(ddg_invsqrt);
+		free(ddg_invsqrt_mem);
+		return Error;
+	}
 
 
 	/* calc o_lnorm */
-	/*------------*/
+	/*--------------*/
 	/* 	
 		DDG is a diagonal matrix (thus also DDG^-0.5). Thus
 		we can avoid full matrix multipication in O(n^3), and 
@@ -263,10 +267,10 @@ enum status calc_normalized_graph_laplacian(
 		* parameters - dim and k.
 	outputs:
 		* return an integer - index from 0 to k-1 - representing the
-		  assigned centroid.
+		  assigned centroid, or (-1) on error
 
 	From k centroids - find the one that is the closest to the datapoint, 
-	and return its index (from )
+	and return its index.
 */
 int assign_to_cluster(
 	F_TYPE* dp, F_TYPE** centroids,
@@ -281,6 +285,8 @@ int assign_to_cluster(
 	for (i = 0; i < k; ++i)
 	{
 		curr_dist = pow(calc_l2_norm(dp, centroids[i], dim), 2);
+		if ((EDOM == errno) || (ERANGE == errno))
+			return (-1);
 		if (curr_dist < min_dist) {
 			min_dist = curr_dist;
 			min_dist_centrd_idx = i;
@@ -293,6 +299,7 @@ int assign_to_cluster(
 /*
 	@details Calculates the (Frobenius Norm(mtx))^2 - sum((diagonal values)^2), 
 			  which is called 'off(mtx)^2' of mtx in the specification document.
+  	returns -1 on error
 */
 double calc_off(F_TYPE** mtx, size_t mtx_columns_num)
 {
@@ -303,6 +310,9 @@ double calc_off(F_TYPE** mtx, size_t mtx_columns_num)
 	{
 		for (j = 0; j < i; j++)
 			off += 2 * pow(mtx[i][j], 2);
+
+		if ((EDOM == errno) || (ERANGE == errno))
+			return (-1);
 	}
 
 	return off;
@@ -348,8 +358,13 @@ enum status calc_jacobi_iteration(
 	else
 		t = -1 / (F_TYPE_ABS(theta) + sqrt(pow(theta, 2) + 1));
 
-	c = 1 / sqrt(pow(t, 2) + 1);
-	s = t*c;
+		c = 1 / sqrt(pow(t, 2) + 1);
+
+		if ((EDOM == errno) || (ERANGE == errno))
+			return Error;
+
+		s = t*c;
+
 #ifdef DEBUG_JACOBI
 	printf("Theta: %f\n t: %f\n c: %f\n s: %f\n",theta, t, c, s);
 #endif
@@ -388,8 +403,13 @@ enum status calc_jacobi_iteration(
 		io_mtx_A[j][j] =
 			pow(s,2)*temp1 + pow(c,2)*temp2 + 2*s*c*io_mtx_A[i][j];
 
+		if ((EDOM == errno) || (ERANGE == errno))
+			return Error;
+
+
 		io_mtx_A[i][j] = 0;
 		io_mtx_A[j][i] = 0;
+
 
 		return Success;
 	}
@@ -452,10 +472,22 @@ enum status find_eigenvalues_jacobi(
 		save the first P in o_mtx_V */
 	prev_off = calc_off(io_mtx_A, dp_num);
 
+	if ((-1) == prev_off) {
+		free(mtx_P); free(mtx_P_mem);
+		free(mtx_V_temp); free(mtx_V_temp_mem);
+		return Error;		
+	}
+
 	/* Calculating the first A' and P matrices */
 	status = calc_jacobi_iteration(io_mtx_A, dp_num, o_mtx_V);
 
 	curr_off = calc_off(io_mtx_A, dp_num);
+
+	if (((-1) == curr_off) || (Error == status)) {
+		free(mtx_P); free(mtx_P_mem);
+		free(mtx_V_temp); free(mtx_V_temp_mem);
+		return Error;		
+	}
 
 	/* Calc the diagonal A' matrix */
 	for (i = 1;
@@ -485,7 +517,13 @@ enum status find_eigenvalues_jacobi(
 
 		/* Calculating the function 'off^2' of the new matrix */
 		prev_off = curr_off;
+
 		curr_off = calc_off(io_mtx_A, dp_num);
+		if (((-1) == curr_off) || (Error == status)) {
+			free(mtx_P); free(mtx_P_mem);
+			free(mtx_V_temp); free(mtx_V_temp_mem);
+			return Error;		
+		}
 	}
 
 #ifdef DEBUG_JACOBI
@@ -1054,6 +1092,10 @@ enum status kmeans(
 		{
 			curr_assigned_clstr = 
 				assign_to_cluster(input_dps[i], centroids, dim, k);
+			if ((-1) == curr_assigned_clstr) {
+				status = Error;
+				goto finish_kmeans;
+			}
 			output_cluster_assign[i] = curr_assigned_clstr;
 
 			centrds_ref_cnt[curr_assigned_clstr]++;
