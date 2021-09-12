@@ -6,12 +6,9 @@
 #include <float.h>
 #include "spkmeans.h"
 
-#define DEBUG
-
 /*======*/
 /* misc */
 /*======*/
-
 
 int goal_enum(const char* goal_str) {
 	if 		(0 == strcmp("spk", goal_str)) return SPK;
@@ -321,7 +318,7 @@ enum status calc_jacobi_iteration(
 	int k = 0;
 	int l = 0;
 	int i = 0;
-	int j = 0;
+	int j = 1;
 	F_TYPE max = 0;
 
 	F_TYPE theta = 0, t = 0, c = 0, s = 0, temp1 = 0, temp2 = 0;
@@ -344,29 +341,29 @@ enum status calc_jacobi_iteration(
 	printf("Found max, A[%d][%d] = %f\n",i,j,max);
 #endif
 
-	if (max != 0)
-	{
-		theta = (io_mtx_A[j][j] - io_mtx_A[i][i]) / (2*io_mtx_A[i][j]);
+	theta = (io_mtx_A[j][j] - io_mtx_A[i][i]) / (2*io_mtx_A[i][j]);
 
-		if (theta >= 0)
-			t = 1 / (F_TYPE_ABS(theta) + sqrt(pow(theta, 2) + 1));
-		else
-			t = -1 / (F_TYPE_ABS(theta) + sqrt(pow(theta, 2) + 1));
+	if (theta >= 0)
+		t = 1 / (F_TYPE_ABS(theta) + sqrt(pow(theta, 2) + 1));
+	else
+		t = -1 / (F_TYPE_ABS(theta) + sqrt(pow(theta, 2) + 1));
 
-		c = 1 / sqrt(pow(t, 2) + 1);
-		s = t*c;
+	c = 1 / sqrt(pow(t, 2) + 1);
+	s = t*c;
 #ifdef DEBUG_JACOBI
-		printf("Theta: %f\n t: %f\n c: %f\n s: %f\n",theta, t, c, s);
+	printf("Theta: %f\n t: %f\n c: %f\n s: %f\n",theta, t, c, s);
 #endif
 
-		for (k = 0; k < dp_num; k++)
-			o_mtx_P[k][k] = 1;
+	for (k = 0; k < dp_num; k++)
+		o_mtx_P[k][k] = 1;
 
-		o_mtx_P[i][i] = c;
-		o_mtx_P[j][j] = c;
-		o_mtx_P[i][j] = s;
-		o_mtx_P[j][i] = -s;
-
+	o_mtx_P[i][i] = c;
+	o_mtx_P[j][j] = c;
+	o_mtx_P[i][j] = s;
+	o_mtx_P[j][i] = -s;
+	
+	if (max != 0)
+	{
 		/* Performing step as described in sub-paragraph 6 */
 		for (k = 0; k < dp_num; k++)
 		{
@@ -1114,10 +1111,14 @@ void print_matrix(F_TYPE** matrix, int n, int m)
 	{
 		for (j = 0; j < m; ++j)
 		{
-			printf(F_TYPE_OUTPUT_FORMAT_SPEC, matrix[i][j]);
+			/* Making sure values between 0 and -0.00005 will be printed as 0 */
+			if (matrix[i][j] < 0 && matrix[i][j] > MIN_ZERO_VAL)
+				printf(F_TYPE_OUTPUT_FORMAT_SPEC_ZERO);
+			else
+				printf(F_TYPE_OUTPUT_FORMAT_SPEC, matrix[i][j]);
 			if (j != m-1) printf(",");
 		}
-		printf("\n");
+		if (j != n-1) printf("\n");
 	}
 }
 
@@ -1224,11 +1225,11 @@ int main(int argc, char const *argv[])
 	while (TRUE) {
 		scan_status = scan_next_val(&scanned_num, finput);
 
-		if (scan_status < 0) {
+		/*if (scan_status < 0) {
 			DEBUG_PRINT("bad input file format\n");
 			PRINT_INVALID_INPUT();
 			goto on_input_error;
-		}
+		}*/
 
 		/* when done reading the file */
 		if (scan_status == 2) {
